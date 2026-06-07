@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>오답 로그 · ErrorLog</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="오답 로그">
+<meta name="theme-color" content="#f4efe6">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --paper:#f4efe6; --paper-2:#efe8db; --ink:#23201b; --ink-soft:#5c554a;
+    --line:#d9cfbc; --red:#c8362a; --red-soft:#e85c4f; --gold:#9a7b3f;
+    --shadow:0 1px 0 rgba(255,255,255,.6), 0 14px 30px -18px rgba(40,30,20,.45);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    background-image:radial-gradient(circle at 12% 18%, rgba(0,0,0,.018) 0 1px, transparent 1px),
+      radial-gradient(circle at 70% 60%, rgba(0,0,0,.015) 0 1px, transparent 1px);
+    background-size:7px 7px, 9px 9px;
+    color:var(--ink);font-family:"Pretendard","Pretendard Variable",-apple-system,sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased;padding-bottom:env(safe-area-inset-bottom);
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:20px 18px 90px;}
+  header{display:flex;align-items:baseline;justify-content:space-between;
+    padding-bottom:14px;border-bottom:2px solid var(--ink);margin-bottom:6px;}
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .mark{font-family:"Newsreader",serif;font-style:italic;font-size:30px;font-weight:600;
+    letter-spacing:-.01em;position:relative;}
+  .mark::after{content:"";position:absolute;left:-3px;right:-3px;bottom:6px;height:10px;
+    background:var(--red);opacity:.18;border-radius:2px;transform:rotate(-1deg);z-index:-1;}
+  .sub{font-size:12px;color:var(--ink-soft);letter-spacing:.18em;text-transform:uppercase;}
+  .gear{background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;
+    font-size:13px;color:var(--ink-soft);padding:6px 8px;}
+  .gear:hover{color:var(--red);border-color:var(--red);}
+  .tagline{font-size:13px;color:var(--ink-soft);margin:10px 0 22px;}
+  .tagline b{color:var(--red);font-weight:600;}
+
+  .tabs{display:flex;gap:4px;margin-bottom:18px;}
+  .tab{flex:1;background:transparent;border:1px solid var(--line);border-radius:10px;padding:10px;
+    font-family:inherit;font-size:14px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:.15s;}
+  .tab.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .panel{display:none;animation:fade .35s ease;}
+  .panel.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  .card{background:var(--paper-2);border:1px solid var(--line);border-radius:14px;padding:16px;
+    box-shadow:var(--shadow);margin-bottom:16px;}
+  label.fld{display:block;font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--ink-soft);margin:0 0 6px;}
+  input[type=text],input[type=password],textarea,select{width:100%;background:#fbf8f1;border:1px solid var(--line);
+    border-radius:10px;padding:11px 12px;font-family:inherit;font-size:15px;color:var(--ink);}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(200,54,42,.12);}
+  .row{margin-bottom:12px;}.row:last-child{margin-bottom:0;}
+
+  .seg{display:flex;gap:4px;margin-bottom:16px;background:#fbf8f1;border:1px solid var(--line);border-radius:10px;padding:4px;}
+  .seg button{flex:1;background:none;border:none;border-radius:7px;padding:9px;font-family:inherit;font-size:13px;
+    font-weight:600;color:var(--ink-soft);cursor:pointer;}
+  .seg button.on{background:var(--red);color:#fff;}
+
+  .drop{border:2px dashed var(--line);border-radius:14px;padding:26px 16px;text-align:center;color:var(--ink-soft);
+    cursor:pointer;transition:.15s;background:#fbf8f1;}
+  .drop:hover,.drop.over{border-color:var(--red);color:var(--red);background:#fdf6f4;}
+  .drop .ico{font-size:30px;display:block;margin-bottom:8px;}
+  .preview{margin-top:12px;border-radius:12px;overflow:hidden;border:1px solid var(--line);display:none;}
+  .preview img{width:100%;display:block;}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--red);
+    color:#fff;border:none;border-radius:12px;padding:14px;font-family:inherit;font-size:16px;font-weight:700;
+    cursor:pointer;transition:.15s;box-shadow:0 8px 18px -10px rgba(200,54,42,.8);}
+  .btn:hover{background:var(--red-soft);}
+  .btn:disabled{background:var(--line);color:var(--ink-soft);box-shadow:none;cursor:default;}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);box-shadow:none;font-weight:600;}
+  .btn.ghost:hover{border-color:var(--red);color:var(--red);}
+  .btn.sm{width:auto;padding:9px 14px;font-size:14px;border-radius:10px;}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+  .tag{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink-soft);}
+  .tag.red{background:#fdeceb;border-color:#f0c4bf;color:var(--red);}
+  .sec{margin:0 0 16px;}
+  .sec h3{font-size:13px;font-weight:700;letter-spacing:.05em;color:var(--red);margin:0 0 6px;
+    display:flex;align-items:center;gap:7px;text-transform:uppercase;}
+  .sec h3::before{content:"";width:14px;height:2px;background:var(--red);display:inline-block;}
+  .sec .body{font-size:15.5px;}
+  .answer{font-weight:700;background:#fff7d6;border-left:3px solid var(--gold);padding:8px 12px;border-radius:0 8px 8px 0;}
+  details.hint{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;}
+  details.hint summary{cursor:pointer;font-weight:600;color:var(--ink-soft);font-size:14px;}
+  details.hint[open] summary{color:var(--red);margin-bottom:6px;}
+
+  .found-cards .pcard{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;}
+  .pcard .hd{display:flex;gap:10px;align-items:flex-start;}
+  .pcard input[type=checkbox]{width:20px;height:20px;accent-color:var(--red);margin-top:2px;flex:none;}
+  .pcard . qt{font-size:14.5px;}
+  .pcard .ex{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px;display:none;}
+  .pcard.open .ex{display:block;}
+  .more{font-size:12px;color:var(--red);cursor:pointer;font-weight:600;margin-top:6px;display:inline-block;}
+
+  .status{font-size:13px;color:var(--ink-soft);text-align:center;margin:10px 0;min-height:18px;}
+  .status.err{color:var(--red);}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--red);
+    border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+
+  .item{background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:10px;
+    cursor:pointer;transition:.12s;}
+  .item:hover{border-color:var(--red);}
+  .item .top{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .item .ttl{font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .item .meta{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+  .empty{text-align:center;color:var(--ink-soft);padding:40px 10px;font-size:14px;}
+  .del{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:13px;padding:4px;}
+  .del:hover{color:var(--red);}
+
+  .diff{display:flex;gap:6px;margin:6px 0 0;}
+  .diff button{flex:1;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px;font-family:inherit;
+    font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
+  .diff button:hover{border-color:var(--red);color:var(--red);}
+  .practice{background:#fff;border:1px dashed var(--gold);border-radius:12px;padding:14px;margin-top:10px;}
+
+  .hint-note{font-size:12px;color:var(--ink-soft);margin-top:10px;line-height:1.5;}
+  a{color:var(--red);} .save-tip{font-size:12px;color:var(--gold);text-align:center;margin-top:8px;}
+  .back{font-size:13px;color:var(--ink-soft);cursor:pointer;margin-bottom:10px;display:inline-block;}
+  .back:hover{color:var(--red);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="mark">오답 로그</span><span class="sub">ErrorLog</span></div>
+    <button class="gear" onclick="show('set')">⚙ 설정</button>
+  </header>
+  <p class="tagline">시험지를 찍으면 <b>틀린 문제만</b> 골라 첨삭 · 난이도별 유사문제로 연습 · 친구와 공유.</p>
+
+  <div class="tabs">
+    <button class="tab active" data-t="capture" onclick="show('capture')">＋ 새 오답</button>
+    <button class="tab" data-t="list" onclick="show('list');renderList()">📚 오답 목록</button>
+  </div>
+
+  <!-- CAPTURE -->
+  <section class="panel active" id="capture">
+    <div class="card">
+      <div class="seg">
+        <button id="m-single" class="on" onclick="setMode('single')">단일 문제</button>
+        <button id="m-full" onclick="setMode('full')">시험지 전체 · 틀린 것만</button>
+      </div>
+      <div class="row">
+        <label class="fld">사진</label>
+        <div class="drop" id="drop"><span class="ico">📷</span>탭하여 촬영하거나 사진 선택<br><span style="font-size:12px">(붙여넣기 · 드래그도 가능)</span></div>
+        <input type="file" id="file" accept="image/*" capture="environment" hidden>
+        <div class="preview" id="preview"><img id="pimg" alt=""></div>
+      </div>
+      <div class="row">
+        <label class="fld">과목·단원 힌트 <span style="font-weight:400">(선택)</span></label>
+        <input type="text" id="hint" placeholder="예: 고1 수학(하) · 삼각함수">
+      </div>
+      <button class="btn" id="go" onclick="analyze()" disabled>🖊 첨삭받기</button>
+      <div class="status" id="status"></div>
+    </div>
+    <div id="result"></div>
+  </section>
+
+  <!-- LIST -->
+  <section class="panel" id="list"><div id="listBox"></div></section>
+
+  <!-- DETAIL -->
+  <section class="panel" id="detail"><div id="detailBox"></div></section>
+
+  <!-- SETTINGS -->
+  <section class="panel" id="set">
+    <div class="card">
+      <div class="row">
+        <label class="fld">Gemini API 키</label>
+        <input type="password" id="key" placeholder="AIza...">
+        <p class="hint-note">이 브라우저에만 저장됩니다(Gemini 호출 외 전송 없음). 발급: <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></p>
+      </div>
+      <div class="row">
+        <label class="fld">모델</label>
+        <input type="text" id="model" placeholder="gemini-2.5-flash">
+        <p class="hint-note">기본 <b>gemini-2.5-flash</b>. 채점 표시 인식이 약하면 <b>gemini-2.5-pro</b>로.</p>
+      </div>
+      <button class="btn" onclick="saveSettings()">저장</button>
+      <div class="save-tip" id="setSaved"></div>
+    </div>
+    <div class="card">
+      <label class="fld">백업 · 공유 · 가져오기</label>
+      <p class="hint-note" style="margin-top:0">전체 오답을 파일로 받거나, 친구가 보낸 파일을 불러옵니다.</p>
+      <div class="btn-row">
+        <button class="btn ghost sm" onclick="exportData('md')">Markdown 내보내기</button>
+        <button class="btn ghost sm" onclick="exportData('json')">JSON 내보내기</button>
+        <button class="btn ghost sm" onclick="document.getElementById('imp').click()">JSON 가져오기</button>
+      </div>
+      <input type="file" id="imp" accept=".json,application/json" hidden onchange="importData(event)">
+    </div>
+  </section>
+</div>
+
+<script>
+/* ---------- storage (graceful fallback) ---------- */
+const mem={};
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return mem[k]??null;}},
+  set(k,v){try{localStorage.setItem(k,v);}catch(e){mem[k]=v;}}};
+const KEYS={key:'el_key',model:'el_model',list:'el_list'};
+let MODE='single';
+
+function loadSettings(){document.getElementById('key').value=store.get(KEYS.key)||'';
+  document.getElementById('model').value=store.get(KEYS.model)||'gemini-2.5-flash';}
+function saveSettings(){store.set(KEYS.key,document.getElementById('key').value.trim());
+  store.set(KEYS.model,(document.getElementById('model').value.trim()||'gemini-2.5-flash'));
+  document.getElementById('setSaved').textContent='✓ 저장됨';setTimeout(()=>document.getElementById('setSaved').textContent='',1500);}
+function show(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.t===id));}
+function setMode(m){MODE=m;document.getElementById('m-single').classList.toggle('on',m==='single');
+  document.getElementById('m-full').classList.toggle('on',m==='full');
+  document.getElementById('go').textContent=m==='full'?'🖊 틀린 문제 찾기':'🖊 첨삭받기';}
+
+/* ---------- image ---------- */
+let imgB64=null,imgMime=null;
+const drop=document.getElementById('drop'),file=document.getElementById('file');
+drop.onclick=()=>file.click();
+file.onchange=e=>{if(e.target.files[0])loadImg(e.target.files[0]);};
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{if(e.dataTransfer.files[0])loadImg(e.dataTransfer.files[0]);});
+window.addEventListener('paste',e=>{const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/'));if(it)loadImg(it.getAsFile());});
+function loadImg(f){const r=new FileReader();r.onload=()=>{imgB64=r.result.split(',')[1];imgMime=f.type||'image/jpeg';
+  document.getElementById('pimg').src=r.result;document.getElementById('preview').style.display='block';
+  document.getElementById('go').disabled=false;};r.readAsDataURL(f);}
+
+/* ---------- Gemini ---------- */
+async function callGemini(parts,wantJson){
+  const key=store.get(KEYS.key);
+  if(!key){throw new Error('NO_KEY');}
+  const model=store.get(KEYS.model)||'gemini-2.5-flash';
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+  const body={contents:[{parts}],generationConfig:{temperature:0.5}};
+  if(wantJson)body.generationConfig.responseMimeType='application/json';
+  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!res.ok){const t=await res.text();throw new Error('API '+res.status+' · '+t.slice(0,160));}
+  const data=await res.json();
+  return data?.candidates?.[0]?.content?.parts?.map(p=>p.text).join('')||'';
+}
+function parseJson(raw){const o=JSON.parse(raw.replace(/^```json\s*|\s*```$/g,'').trim());return o;}
+
+const SCHEMA=`각 문제는 다음 형식: {"subject":"과목","unit":"대-중-소단원","problem_text":"문제 원문(수식 포함)","key_concept":"핵심 개념","hint":"정답을 바로 주지 않는 단계적 힌트","solution":"단계별 풀이","answer":"최종 정답","weakness":"약점·복습 포인트"}. 수식은 LaTeX(인라인 $...$, 블록 $$...$$). JSON 외 텍스트 금지.`;
+const PROMPT_SINGLE=`당신은 한국 선생님입니다. 이미지의 문제 1개를 분석해 {"problems":[ ... ]} 형식(배열 1개)으로 응답하세요. `+SCHEMA;
+const PROMPT_FULL=`당신은 채점된 시험지를 첨삭하는 한국 선생님입니다. 이미지에서 X 또는 사선(/)으로 '틀림' 표시된 문제만 찾으세요. O·✓·무표시 문제는 절대 포함하지 말고, 표시가 모호하면 제외하세요. 찾은 문제들을 {"problems":[ ... ]} 배열로 응답하고, 없으면 빈 배열로 응답하세요. `+SCHEMA;
+
+async function analyze(){
+  if(!imgB64){setStatus('사진을 먼저 선택하세요.',true);return;}
+  const hint=document.getElementById('hint').value.trim();
+  const go=document.getElementById('go');go.disabled=true;
+  setStatus('<span class="spin"></span>'+(MODE==='full'?'틀린 문제 찾는 중…':'첨삭 중…'));
+  document.getElementById('result').innerHTML='';
+  const prompt=(MODE==='full'?PROMPT_FULL:PROMPT_SINGLE)+(hint?`\n[사용자 힌트] ${hint}`:'');
+  try{
+    const raw=await callGemini([{text:prompt},{inline_data:{mime_type:imgMime,data:imgB64}}],true);
+    const obj=parseJson(raw);
+    const probs=Array.isArray(obj)?obj:(obj.problems||[]);
+    setStatus('');
+    if(!probs.length){setStatus('표시된 틀린 문제를 찾지 못했어요. 표시가 뚜렷한지, 또는 pro 모델을 시도해보세요.',true);go.disabled=false;return;}
+    if(MODE==='full')renderFound(probs);
+    else renderSingle(probs[0]);
+  }catch(err){
+    if(err.message==='NO_KEY'){setStatus('먼저 ⚙ 설정에서 API 키를 넣어주세요.',true);show('set');}
+    else setStatus('오류: '+err.message,true);
+  }finally{go.disabled=false;}
+}
+function setStatus(h,e){const s=document.getElementById('status');s.innerHTML=h;s.classList.toggle('err',!!e);}
+
+/* ---------- render: single ---------- */
+function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function sec(t,b){return `<div class="sec"><h3>${t}</h3><div class="body">${esc(b)}</div></div>`;}
+function problemHtml(o){
+  return `<div class="tags">${o.subject?`<span class="tag red">${esc(o.subject)}</span>`:''}${o.unit?`<span class="tag">${esc(o.unit)}</span>`:''}</div>
+    ${o.problem_text?sec('문제',o.problem_text):''}
+    ${o.key_concept?sec('핵심 개념',o.key_concept):''}
+    ${o.hint?`<div class="sec"><details class="hint"><summary>💡 힌트 보기</summary><div class="body">${esc(o.hint)}</div></details></div>`:''}
+    ${o.solution?sec('풀이',o.solution):''}
+    ${o.answer?`<div class="sec"><h3>정답</h3><div class="answer body">${esc(o.answer)}</div></div>`:''}
+    ${o.weakness?sec('약점 · 복습',o.weakness):''}`;
+}
+function renderSingle(o){
+  const box=document.getElementById('result');
+  box.innerHTML=`<div class="card">${problemHtml(o)}<button class="btn ghost" onclick='saveOne()'>＋ 오답 목록에 저장</button></div>`;
+  window._one=o;renderMath(box);
+}
+function saveOne(){if(!window._one)return;const a=getList();
+  a.unshift({...window._one,_date:new Date().toISOString()});setList(a);
+  setStatus('✓ 저장됨 — 오답 목록에서 볼 수 있어요.');setTimeout(()=>setStatus(''),1800);}
+
+/* ---------- render: full (triage) ---------- */
+function renderFound(probs){
+  window._found=probs;
+  const cards=probs.map((o,i)=>`
+    <div class="pcard" id="pc${i}">
+      <div class="hd">
+        <input type="checkbox" checked data-i="${i}">
+        <div class="qt">${esc(o.problem_text||o.key_concept||'문제')}</div>
+      </div>
+      <span class="more" onclick="document.getElementById('pc${i}').classList.toggle('open')">해설 펼치기/접기 ▾</span>
+      <div class="ex">${problemHtml(o)}</div>
+    </div>`).join('');
+  const box=document.getElementById('result');
+  box.innerHTML=`<div class="card">
+    <div class="sec"><h3>틀린 문제 ${probs.length}개 발견</h3>
+    <div class="hint-note" style="margin-top:0">잘못 잡힌 건 체크를 해제하세요.</div></div>
+    <div class="found-cards">${cards}</div>
+    <button class="btn" onclick="saveSelected()">선택한 문제 저장</button>
+  </div>`;
+  renderMath(box);
+}
+function saveSelected(){
+  const checked=[...document.querySelectorAll('.pcard input:checked')].map(c=>window._found[+c.dataset.i]);
+  if(!checked.length){setStatus('선택된 문제가 없어요.',true);return;}
+  const a=getList();checked.forEach(o=>a.unshift({...o,_date:new Date().toISOString()}));setList(a);
+  setStatus(`✓ ${checked.length}개 저장됨.`);document.getElementById('result').innerHTML='';
+  setTimeout(()=>setStatus(''),1800);
+}
+
+/* ---------- list & detail ---------- */
+function getList(){try{return JSON.parse(store.get(KEYS.list)||'[]');}catch(e){return [];}}
+function setList(a){store.set(KEYS.list,JSON.stringify(a));}
+function renderList(){
+  const a=getList(),box=document.getElementById('listBox');
+  if(!a.length){box.innerHTML='<div class="empty">아직 저장된 오답이 없어요.</div>';return;}
+  box.innerHTML=a.map((o,i)=>`<div class="item" onclick="openDetail(${i})">
+    <div class="top"><div class="ttl">${esc(o.key_concept||o.problem_text||'오답')}</div>
+    <button class="del" onclick="event.stopPropagation();delItem(${i})">삭제</button></div>
+    <div class="meta">${esc(o.subject||'')} ${o.unit?'· '+esc(o.unit):''} · ${new Date(o._date).toLocaleDateString('ko-KR')}</div>
+  </div>`).join('');
+}
+function delItem(i){const a=getList();a.splice(i,1);setList(a);renderList();}
+function openDetail(i){
+  const o=getList()[i];window._detail={o,i};
+  const box=document.getElementById('detailBox');
+  box.innerHTML=`<span class="back" onclick="show('list');renderList()">← 목록으로</span>
+    <div class="card">${problemHtml(o)}
+      <div class="btn-row"><button class="btn ghost sm" onclick="shareProblem()">📤 친구에게 공유</button></div>
+    </div>
+    <div class="card">
+      <div class="sec"><h3>유사문제로 연습</h3><div class="hint-note" style="margin-top:0">난이도를 골라 새 문제를 받고, 풀어본 뒤 풀이를 확인하세요.</div></div>
+      <div class="diff">
+        <button onclick="practice('쉽게')">쉽게 ↓</button>
+        <button onclick="practice('비슷')">비슷</button>
+        <button onclick="practice('어렵게')">어렵게 ↑</button>
+      </div>
+      <div id="practiceBox"></div>
+    </div>`;
+  show('detail');renderMath(box);window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ---------- practice ---------- */
+async function practice(level){
+  const o=window._detail?.o;if(!o)return;
+  const pb=document.getElementById('practiceBox');
+  pb.innerHTML='<div class="status"><span class="spin"></span>'+level+' 난이도 유사문제 만드는 중…</div>';
+  const dir=level==='쉽게'?'원문제보다 한 단계 쉽게(기초 점검용)':level==='어렵게'?'원문제보다 한 단계 어렵게(응용·심화)':'원문제와 비슷한 난이도로';
+  const prompt=`학생이 틀린 문제와 개념입니다.\n[원문제] ${o.problem_text||''}\n[핵심개념] ${o.key_concept||''}\n같은 개념을 연습할 새 유사문제 1개를 ${dir} 만드세요. JSON으로만: {"problem":"문제(수식 포함)","solution":"단계별 풀이","answer":"최종 정답"}. 수식은 LaTeX($...$, $$...$$).`;
+  try{
+    const raw=await callGemini([{text:prompt}],true);const p=parseJson(raw);
+    pb.innerHTML=`<div class="practice">
+      <div class="tags"><span class="tag red">유사문제 · ${level}</span></div>
+      ${sec('문제',p.problem)}
+      <details class="hint"><summary>✅ 풀이·정답 보기</summary>
+        <div class="body" style="margin-top:6px">${esc(p.solution||'')}</div>
+        ${p.answer?`<div class="answer body" style="margin-top:8px">정답: ${esc(p.answer)}</div>`:''}
+      </details>
+      <div style="margin-top:10px"><span class="more" onclick="practice('${level}')">↻ 다른 문제</span></div>
+    </div>`;
+    renderMath(pb);
+  }catch(err){pb.innerHTML=`<div class="status err">오류: ${esc(err.message)}</div>`;}
+}
+
+/* ---------- share ---------- */
+async function shareProblem(){
+  const o=window._detail?.o;if(!o)return;
+  const text=`[오답노트] ${o.subject||''} · ${o.unit||''}\n\n문제) ${o.problem_text||''}\n\n핵심개념) ${o.key_concept||''}\n정답) ${o.answer||''}\n\n— 오답 로그`;
+  try{
+    if(navigator.share){await navigator.share({title:'오답노트',text});}
+    else{await navigator.clipboard.writeText(text);alert('클립보드에 복사했어요. 친구에게 붙여넣어 보내세요.');}
+  }catch(e){/* user cancelled */}
+}
+
+/* ---------- export / import ---------- */
+function exportData(fmt){
+  const a=getList();if(!a.length){alert('내보낼 오답이 없습니다.');return;}
+  let content,name;
+  if(fmt==='json'){content=JSON.stringify(a,null,2);name='errorlog.json';}
+  else{content=a.map(o=>`# ${o.subject||''} · ${o.unit||''}\n_${new Date(o._date).toLocaleString('ko-KR')}_\n\n**문제**\n${o.problem_text||''}\n\n**핵심개념**\n${o.key_concept||''}\n\n**힌트**\n${o.hint||''}\n\n**풀이**\n${o.solution||''}\n\n**정답**\n${o.answer||''}\n\n**약점·복습**\n${o.weakness||''}\n\n---\n`).join('\n');name='errorlog.md';}
+  const b=new Blob([content],{type:'text/plain'}),u=URL.createObjectURL(b),x=document.createElement('a');
+  x.href=u;x.download=name;x.click();URL.revokeObjectURL(u);
+}
+function importData(ev){
+  const f=ev.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const inc=JSON.parse(r.result);if(!Array.isArray(inc))throw 0;
+    const a=getList();inc.forEach(o=>a.unshift(o));setList(a);
+    alert(`${inc.length}개 문제를 가져왔어요.`);renderList();
+  }catch(e){alert('가져오기 실패: JSON 형식이 아닙니다.');}};
+  r.readAsText(f);ev.target.value='';
+}
+
+/* ---------- math ---------- */
+function renderMath(el){if(window.renderMathInElement)renderMathInElement(el,{delimiters:[
+  {left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false},
+  {left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}],throwOnError:false});}
+
+loadSettings();
+</script>
+</body>
+</html>
