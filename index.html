@@ -137,9 +137,13 @@
 <div class="wrap">
   <header>
     <div class="brand"><span class="mark">오답 로그</span><span class="sub">ErrorLog</span></div>
-    <button class="gear" onclick="show('set')">⚙ 설정</button>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="gear" onclick="syncData()" title="기기 간 동기화">⇅ 동기화</button>
+      <button class="gear" onclick="show('set')">⚙ 설정</button>
+    </div>
   </header>
   <p class="tagline">시험지를 찍으면 <b>틀린 문제만</b> 골라 첨삭 · 난이도별 유사문제로 연습 · 친구와 공유.</p>
+  <div class="status" id="syncStatus" style="text-align:right;margin:-12px 0 10px;min-height:16px;font-size:12px"></div>
 
   <div class="tabs">
     <button class="tab active" data-t="capture" onclick="show('capture')">＋ 새 오답</button>
@@ -188,8 +192,23 @@
         <input type="text" id="model" placeholder="gemini-2.5-flash">
         <p class="hint-note">기본 <b>gemini-2.5-flash</b>. 채점 표시 인식이 약하면 <b>gemini-2.5-pro</b>로.</p>
       </div>
+      <div class="row">
+        <label class="fld">동기화 · Apps Script URL <span style="font-weight:400">(선택)</span></label>
+        <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/…/exec">
+        <p class="hint-note">구글 시트 동기화용 웹앱 URL. 없으면 이 기기에만 저장됩니다.<br>설치 방법: 아래 <b>Code.gs 설치 안내</b> 참고.</p>
+      </div>
       <button class="btn" onclick="saveSettings()">저장</button>
       <div class="save-tip" id="setSaved"></div>
+    </div>
+    <div class="card">
+      <label class="fld">Code.gs 설치 안내</label>
+      <p class="hint-note" style="margin-top:0;line-height:1.8">
+        ① <a href="https://sheets.google.com" target="_blank">Google Sheets</a>에서 새 스프레드시트 생성<br>
+        ② 상단 메뉴 <b>확장 프로그램 › Apps Script</b> 클릭<br>
+        ③ 편집기에 <b>Code.gs</b> 파일 내용 전체 붙여넣기 후 저장<br>
+        ④ <b>배포 › 새 배포</b> — 유형: 웹 앱 / 실행 계정: 나 / 액세스: 모든 사용자<br>
+        ⑤ 배포 후 나오는 URL을 위 입력칸에 붙여넣고 <b>저장</b>
+      </p>
     </div>
     <div class="card">
       <label class="fld">백업 · 공유 · 가져오기</label>
@@ -209,14 +228,20 @@
 const mem={};
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return mem[k]??null;}},
   set(k,v){try{localStorage.setItem(k,v);}catch(e){mem[k]=v;}}};
-const KEYS={key:'el_key',model:'el_model',list:'el_list'};
+const KEYS={key:'el_key',model:'el_model',list:'el_list',gasUrl:'el_gas'};
 let MODE='single';
 
-function loadSettings(){document.getElementById('key').value=store.get(KEYS.key)||'';
-  document.getElementById('model').value=store.get(KEYS.model)||'gemini-2.5-flash';}
-function saveSettings(){store.set(KEYS.key,document.getElementById('key').value.trim());
+function loadSettings(){
+  document.getElementById('key').value=store.get(KEYS.key)||'';
+  document.getElementById('model').value=store.get(KEYS.model)||'gemini-2.5-flash';
+  document.getElementById('gasUrl').value=store.get(KEYS.gasUrl)||'';
+}
+function saveSettings(){
+  store.set(KEYS.key,document.getElementById('key').value.trim());
   store.set(KEYS.model,(document.getElementById('model').value.trim()||'gemini-2.5-flash'));
-  document.getElementById('setSaved').textContent='✓ 저장됨';setTimeout(()=>document.getElementById('setSaved').textContent='',1500);}
+  store.set(KEYS.gasUrl,document.getElementById('gasUrl').value.trim());
+  document.getElementById('setSaved').textContent='✓ 저장됨';setTimeout(()=>document.getElementById('setSaved').textContent='',1500);
+}
 function show(id){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.t===id));}
@@ -252,9 +277,9 @@ async function callGemini(parts,wantJson){
 }
 function parseJson(raw){const o=JSON.parse(raw.replace(/^```json\s*|\s*```$/g,'').trim());return o;}
 
-const SCHEMA=`각 문제는 다음 형식: {"subject":"과목","unit":"대-중-소단원","problem_text":"문제 원문(수식 포함)","key_concept":"핵심 개념","hint":"정답을 바로 주지 않는 단계적 힌트","solution":"단계별 풀이","answer":"최종 정답","weakness":"약점·복습 포인트"}. 수식은 LaTeX(인라인 $...$, 블록 $$...$$). JSON 외 텍스트 금지.`;
+const SCHEMA=`각 문제는 다음 JSON 형식: {"subject":"과목","unit_large":"대단원","unit_medium":"중단원","unit_small":"소단원(없으면 빈 문자열)","problem_text":"문제 원문(수식 포함)","key_concept":"핵심 개념","hint":"정답을 바로 주지 않는 단계적 힌트","solution":"단계별 풀이","answer":"최종 정답","difficulty":"하|중|상 중 하나","wrong_answer":"학생의 오답(사진에서 보이면 기재, 안 보이면 빈 문자열)","error_type":"개념부족|계산실수|문제이해|조건누락|시간부족|단순실수 중 추정값(불명확하면 빈 문자열)","weakness":"약점·복습 포인트"}. 수식은 LaTeX(인라인 $...$, 블록 $$...$$). JSON 외 텍스트 금지.`;
 const PROMPT_SINGLE=`당신은 한국 선생님입니다. 이미지의 문제 1개를 분석해 {"problems":[ ... ]} 형식(배열 1개)으로 응답하세요. `+SCHEMA;
-const PROMPT_FULL=`당신은 채점된 시험지를 첨삭하는 한국 선생님입니다. 이미지에서 X 또는 사선(/)으로 '틀림' 표시된 문제만 찾으세요. O·✓·무표시 문제는 절대 포함하지 말고, 표시가 모호하면 제외하세요. 찾은 문제들을 {"problems":[ ... ]} 배열로 응답하고, 없으면 빈 배열로 응답하세요. `+SCHEMA;
+const PROMPT_FULL=`당신은 채점된 시험지를 첨삭하는 한국 선생님입니다. 이미지에서 X 또는 사선(/)으로 '틀림' 표시된 문제만 찾으세요. O·✓·무표시 문제는 절대 포함하지 말고, 표시가 모호하면 제외하세요. 사진에 학생의 풀이나 답이 보이면 wrong_answer와 error_type을 추정해 채우고, 안 보이면 빈 문자열로 두세요. 찾은 문제들을 {"problems":[ ... ]} 배열로 응답하고, 없으면 빈 배열로 응답하세요. `+SCHEMA;
 
 async function analyze(){
   if(!imgB64){setStatus('사진을 먼저 선택하세요.',true);return;}
@@ -282,8 +307,17 @@ function setStatus(h,e){const s=document.getElementById('status');s.innerHTML=h;
 function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function sec(t,b){return `<div class="sec"><h3>${t}</h3><div class="body">${esc(b)}</div></div>`;}
 function problemHtml(o){
-  return `<div class="tags">${o.subject?`<span class="tag red">${esc(o.subject)}</span>`:''}${o.unit?`<span class="tag">${esc(o.unit)}</span>`:''}</div>
+  const units=[o.unit_large,o.unit_medium,o.unit_small].filter(Boolean).join(' › ');
+  const legacyUnit=o.unit||'';
+  const unitDisplay=units||legacyUnit;
+  return `<div class="tags">
+    ${o.subject?`<span class="tag red">${esc(o.subject)}</span>`:''}
+    ${unitDisplay?`<span class="tag">${esc(unitDisplay)}</span>`:''}
+    ${o.difficulty?`<span class="tag">${esc(o.difficulty)}</span>`:''}
+    ${o.error_type?`<span class="tag red">${esc(o.error_type)}</span>`:''}
+  </div>
     ${o.problem_text?sec('문제',o.problem_text):''}
+    ${o.wrong_answer?sec('내 오답',o.wrong_answer):''}
     ${o.key_concept?sec('핵심 개념',o.key_concept):''}
     ${o.hint?`<div class="sec"><details class="hint"><summary>💡 힌트 보기</summary><div class="body">${esc(o.hint)}</div></details></div>`:''}
     ${o.solution?sec('풀이',o.solution):''}
@@ -295,8 +329,20 @@ function renderSingle(o){
   box.innerHTML=`<div class="card">${problemHtml(o)}<button class="btn ghost" onclick='saveOne()'>＋ 오답 목록에 저장</button></div>`;
   window._one=o;renderMath(box);
 }
+function makeRecord(o){
+  const now=new Date().toISOString();
+  return {
+    id:(typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random().toString(36).slice(2)),
+    created_at:now,updated_at:now,review_status:'안함',review_count:0,last_reviewed:null,
+    subject:o.subject||'',unit_large:o.unit_large||o.unit||'',unit_medium:o.unit_medium||'',unit_small:o.unit_small||'',
+    problem_text:o.problem_text||'',key_concept:o.key_concept||'',hint:o.hint||'',
+    solution:o.solution||'',answer:o.answer||'',difficulty:o.difficulty||'중',
+    wrong_answer:o.wrong_answer||'',error_type:o.error_type||'',weakness:o.weakness||'',
+    similar_level:null,similar_problem:null,similar_answer:null
+  };
+}
 function saveOne(){if(!window._one)return;const a=getList();
-  a.unshift({...window._one,_date:new Date().toISOString()});setList(a);
+  a.unshift(makeRecord(window._one));setList(a);
   setStatus('✓ 저장됨 — 오답 목록에서 볼 수 있어요.');setTimeout(()=>setStatus(''),1800);}
 
 /* ---------- render: full (triage) ---------- */
@@ -323,7 +369,7 @@ function renderFound(probs){
 function saveSelected(){
   const checked=[...document.querySelectorAll('.pcard input:checked')].map(c=>window._found[+c.dataset.i]);
   if(!checked.length){setStatus('선택된 문제가 없어요.',true);return;}
-  const a=getList();checked.forEach(o=>a.unshift({...o,_date:new Date().toISOString()}));setList(a);
+  const a=getList();checked.forEach(o=>a.unshift(makeRecord(o)));setList(a);
   setStatus(`✓ ${checked.length}개 저장됨.`);document.getElementById('result').innerHTML='';
   setTimeout(()=>setStatus(''),1800);
 }
@@ -334,38 +380,70 @@ function setList(a){store.set(KEYS.list,JSON.stringify(a));}
 function renderList(){
   const a=getList(),box=document.getElementById('listBox');
   if(!a.length){box.innerHTML='<div class="empty">아직 저장된 오답이 없어요.</div>';return;}
-  box.innerHTML=a.map((o,i)=>`<div class="item" onclick="openDetail(${i})">
-    <div class="top"><div class="ttl">${esc(o.key_concept||o.problem_text||'오답')}</div>
-    <button class="del" onclick="event.stopPropagation();delItem(${i})">삭제</button></div>
-    <div class="meta">${esc(o.subject||'')} ${o.unit?'· '+esc(o.unit):''} · ${new Date(o._date).toLocaleDateString('ko-KR')}</div>
-  </div>`).join('');
+  box.innerHTML=a.map((o,i)=>{
+    const unit=o.unit_large||(o.unit||'');
+    const dateStr=new Date(o.created_at||o._date||Date.now()).toLocaleDateString('ko-KR');
+    const diff=o.difficulty?`<span class="tag" style="font-size:11px">${esc(o.difficulty)}</span>`:'';
+    const et=o.error_type?`<span class="tag" style="font-size:11px">${esc(o.error_type)}</span>`:'';
+    return `<div class="item" onclick="openDetail(${i})">
+      <div class="top"><div class="ttl">${esc(o.key_concept||o.problem_text||'오답')}</div>
+      <button class="del" onclick="event.stopPropagation();delItem(${i})">삭제</button></div>
+      <div class="meta">${esc(o.subject||'')}${unit?' · '+esc(unit):''} · ${dateStr}</div>
+      <div class="tags" style="margin:6px 0 0">${diff}${et}</div>
+    </div>`;
+  }).join('');
 }
 function delItem(i){const a=getList();a.splice(i,1);setList(a);renderList();}
+const ERROR_TYPES=['','개념부족','계산실수','문제이해','조건누락','시간부족','단순실수'];
 function openDetail(i){
   const o=getList()[i];window._detail={o,i};
   const box=document.getElementById('detailBox');
+  const etOpts=ERROR_TYPES.map(v=>`<option value="${v}"${o.error_type===v?' selected':''}>${v||'선택 안 함'}</option>`).join('');
+  const diffOpts=['하','중','상'].map(v=>`<option${o.difficulty===v?' selected':''}>${v}</option>`).join('');
   box.innerHTML=`<span class="back" onclick="show('list');renderList()">← 목록으로</span>
     <div class="card">${problemHtml(o)}
       <div class="btn-row"><button class="btn ghost sm" onclick="shareProblem()">📤 친구에게 공유</button></div>
     </div>
     <div class="card">
+      <div class="sec"><h3>내 기록 수정</h3></div>
+      <div class="row"><label class="fld">난이도</label><select id="edit-diff">${diffOpts}</select></div>
+      <div class="row"><label class="fld">내 오답</label><input type="text" id="edit-wrong" value="${esc(o.wrong_answer||'')}" placeholder="내가 쓴 답"></div>
+      <div class="row"><label class="fld">오류 유형</label><select id="edit-errtype">${etOpts}</select></div>
+      <button class="btn sm" style="width:auto" onclick="saveDetailEdits()">수정 저장</button>
+      <div class="status" id="editSaved" style="text-align:left;margin-top:6px"></div>
+    </div>
+    <div class="card">
       <div class="sec"><h3>유사문제로 연습</h3><div class="hint-note" style="margin-top:0">난이도를 골라 새 문제를 받고, 풀어본 뒤 풀이를 확인하세요.</div></div>
+      ${o.similar_problem?`<div class="practice" style="margin-bottom:10px">
+        <div class="tags"><span class="tag red">저장된 유사문제 · ${esc(o.similar_level||'')}</span></div>
+        ${sec('문제',o.similar_problem)}
+        ${o.similar_answer?`<div class="answer body" style="margin-top:6px">정답: ${esc(o.similar_answer)}</div>`:''}
+      </div>`:''}
       <div class="diff">
-        <button onclick="practice('쉽게')">쉽게 ↓</button>
-        <button onclick="practice('비슷')">비슷</button>
+        <button onclick="practice('유사')">유사 문제</button>
         <button onclick="practice('어렵게')">어렵게 ↑</button>
       </div>
       <div id="practiceBox"></div>
     </div>`;
   show('detail');renderMath(box);window.scrollTo({top:0,behavior:'smooth'});
 }
+function saveDetailEdits(){
+  const {o,i}=window._detail||{};if(!o)return;
+  const a=getList();
+  a[i].difficulty=document.getElementById('edit-diff').value;
+  a[i].wrong_answer=document.getElementById('edit-wrong').value.trim();
+  a[i].error_type=document.getElementById('edit-errtype').value;
+  a[i].updated_at=new Date().toISOString();
+  setList(a);window._detail.o=a[i];
+  const s=document.getElementById('editSaved');s.textContent='✓ 저장됨';setTimeout(()=>s.textContent='',1500);
+}
 
 /* ---------- practice ---------- */
 async function practice(level){
-  const o=window._detail?.o;if(!o)return;
+  const {o,i}=window._detail||{};if(!o)return;
   const pb=document.getElementById('practiceBox');
-  pb.innerHTML='<div class="status"><span class="spin"></span>'+level+' 난이도 유사문제 만드는 중…</div>';
-  const dir=level==='쉽게'?'원문제보다 한 단계 쉽게(기초 점검용)':level==='어렵게'?'원문제보다 한 단계 어렵게(응용·심화)':'원문제와 비슷한 난이도로';
+  pb.innerHTML='<div class="status"><span class="spin"></span>'+level+' 유사문제 만드는 중…</div>';
+  const dir=level==='어렵게'?'원문제보다 한 단계 어렵게(응용·심화)':'원문제와 비슷한 난이도로';
   const prompt=`학생이 틀린 문제와 개념입니다.\n[원문제] ${o.problem_text||''}\n[핵심개념] ${o.key_concept||''}\n같은 개념을 연습할 새 유사문제 1개를 ${dir} 만드세요. JSON으로만: {"problem":"문제(수식 포함)","solution":"단계별 풀이","answer":"최종 정답"}. 수식은 LaTeX($...$, $$...$$).`;
   try{
     const raw=await callGemini([{text:prompt}],true);const p=parseJson(raw);
@@ -379,13 +457,16 @@ async function practice(level){
       <div style="margin-top:10px"><span class="more" onclick="practice('${level}')">↻ 다른 문제</span></div>
     </div>`;
     renderMath(pb);
+    const a=getList();
+    if(a[i]){a[i].similar_level=level;a[i].similar_problem=p.problem||'';a[i].similar_answer=p.answer||'';setList(a);}
   }catch(err){pb.innerHTML=`<div class="status err">오류: ${esc(err.message)}</div>`;}
 }
 
 /* ---------- share ---------- */
 async function shareProblem(){
   const o=window._detail?.o;if(!o)return;
-  const text=`[오답노트] ${o.subject||''} · ${o.unit||''}\n\n문제) ${o.problem_text||''}\n\n핵심개념) ${o.key_concept||''}\n정답) ${o.answer||''}\n\n— 오답 로그`;
+  const unit=[o.unit_large,o.unit_medium,o.unit_small].filter(Boolean).join(' › ')||(o.unit||'');
+  const text=`[오답노트] ${o.subject||''} · ${unit}\n\n문제) ${o.problem_text||''}\n\n핵심개념) ${o.key_concept||''}\n정답) ${o.answer||''}\n\n— 오답 로그`;
   try{
     if(navigator.share){await navigator.share({title:'오답노트',text});}
     else{await navigator.clipboard.writeText(text);alert('클립보드에 복사했어요. 친구에게 붙여넣어 보내세요.');}
@@ -397,7 +478,9 @@ function exportData(fmt){
   const a=getList();if(!a.length){alert('내보낼 오답이 없습니다.');return;}
   let content,name;
   if(fmt==='json'){content=JSON.stringify(a,null,2);name='errorlog.json';}
-  else{content=a.map(o=>`# ${o.subject||''} · ${o.unit||''}\n_${new Date(o._date).toLocaleString('ko-KR')}_\n\n**문제**\n${o.problem_text||''}\n\n**핵심개념**\n${o.key_concept||''}\n\n**힌트**\n${o.hint||''}\n\n**풀이**\n${o.solution||''}\n\n**정답**\n${o.answer||''}\n\n**약점·복습**\n${o.weakness||''}\n\n---\n`).join('\n');name='errorlog.md';}
+  else{content=a.map(o=>{const unit=[o.unit_large,o.unit_medium,o.unit_small].filter(Boolean).join(' › ')||(o.unit||'');
+    return `# ${o.subject||''} · ${unit}\n_${new Date(o.created_at||o._date||Date.now()).toLocaleString('ko-KR')}_\n\n**문제**\n${o.problem_text||''}\n\n**내 오답**\n${o.wrong_answer||''}\n**오류 유형**\n${o.error_type||''}\n**난이도**\n${o.difficulty||''}\n\n**핵심개념**\n${o.key_concept||''}\n\n**힌트**\n${o.hint||''}\n\n**풀이**\n${o.solution||''}\n\n**정답**\n${o.answer||''}\n\n**약점·복습**\n${o.weakness||''}\n\n---\n`;
+  }).join('\n');name='errorlog.md';}
   const b=new Blob([content],{type:'text/plain'}),u=URL.createObjectURL(b),x=document.createElement('a');
   x.href=u;x.download=name;x.click();URL.revokeObjectURL(u);
 }
@@ -408,6 +491,37 @@ function importData(ev){
     alert(`${inc.length}개 문제를 가져왔어요.`);renderList();
   }catch(e){alert('가져오기 실패: JSON 형식이 아닙니다.');}};
   r.readAsText(f);ev.target.value='';
+}
+
+/* ---------- sync ---------- */
+function setSyncStatus(h,e){const s=document.getElementById('syncStatus');if(!s)return;s.innerHTML=h;s.classList.toggle('err',!!e);}
+async function syncData(){
+  const url=store.get(KEYS.gasUrl);
+  if(!url){alert('설정(⚙)에서 Apps Script URL을 먼저 입력하고 저장해주세요.');show('set');return;}
+  setSyncStatus('<span class="spin"></span>동기화 중…');
+  try{
+    // 1. Pull remote
+    const res=await fetch(url,{redirect:'follow'});
+    if(!res.ok)throw new Error('서버 응답 오류 '+res.status);
+    const remote=await res.json();
+    // 2. Merge by id (newer updated_at wins)
+    const local=getList();
+    const map={};
+    local.forEach(r=>{if(r.id)map[r.id]=r;});
+    (Array.isArray(remote)?remote:[]).forEach(r=>{
+      if(!r.id)return;
+      const ex=map[r.id];
+      if(!ex||(r.updated_at&&(!ex.updated_at||r.updated_at>ex.updated_at)))map[r.id]=r;
+    });
+    const merged=Object.values(map).sort((a,b)=>(b.created_at||'')>(a.created_at||'')?1:-1);
+    setList(merged);
+    // 3. Push merged (Content-Type: text/plain avoids CORS preflight)
+    await fetch(url,{method:'POST',redirect:'follow',
+      headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({records:merged})});
+    setSyncStatus(`✓ 동기화 완료 · ${merged.length}개`);
+    setTimeout(()=>setSyncStatus(''),3000);
+  }catch(err){setSyncStatus('동기화 오류: '+esc(err.message),true);}
 }
 
 /* ---------- math ---------- */
