@@ -124,11 +124,6 @@
   .del{background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:13px;padding:4px;}
   .del:hover{color:var(--red);}
 
-  .diff{display:flex;gap:6px;margin:6px 0 0;}
-  .diff button{flex:1;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px;font-family:inherit;
-    font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
-  .diff button:hover{border-color:var(--red);color:var(--red);}
-  .practice{background:#fff;border:1px dashed var(--gold);border-radius:12px;padding:14px;margin-top:10px;}
 
   /* 복습 상태 버튼 */
   .rs-wrap{display:flex;gap:6px;margin-top:6px;}
@@ -180,7 +175,7 @@
       <button class="gear" onclick="show('set')">⚙ 설정</button>
     </div>
   </header>
-  <p class="tagline">시험지를 찍으면 <b>틀린 문제만</b> 골라 첨삭 · 난이도별 유사문제로 연습 · 친구와 공유. <span id="verTag" style="color:var(--gold);font-weight:600"></span></p>
+  <p class="tagline">시험지를 찍으면 <b>틀린 문제만</b> 골라 첨삭 · 오답 정리 · 친구와 공유. <span id="verTag" style="color:var(--gold);font-weight:600"></span></p>
   <div class="status" id="syncStatus" style="text-align:right;margin:-12px 0 10px;min-height:16px;font-size:12px"></div>
 
   <div class="tabs">
@@ -261,16 +256,6 @@
         <p class="hint-note">기본 <b>gemini-2.5-flash</b> 권장(빠르고 혼잡이 적음). 채점 표시 인식이 약하면 <b>gemini-2.5-pro</b>로. <br>pro가 혼잡하면 자동으로 flash로 전환됩니다.</p>
       </div>
       <div class="row">
-        <label class="fld">Claude API 키 <span style="font-weight:400">(백업 · 선택)</span></label>
-        <input type="password" id="claudeKey" placeholder="sk-ant-...">
-        <p class="hint-note">Gemini가 실패(혼잡·형식오류)하면 <b>자동으로 Claude로 재시도</b>합니다. 없으면 Gemini만 사용. 발급: <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> (유료, 충전식)</p>
-      </div>
-      <div class="row">
-        <label class="fld">Claude 모델</label>
-        <input type="text" id="claudeModel" placeholder="claude-haiku-4-5">
-        <p class="hint-note">백업용 기본 <b>claude-haiku-4-5</b>(가장 저렴). 정확도 우선이면 <b>claude-sonnet-4-6</b> 또는 <b>claude-opus-4-8</b>.</p>
-      </div>
-      <div class="row">
         <label class="fld">동기화 · Apps Script URL <span style="font-weight:400">(선택)</span></label>
         <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/…/exec">
         <p class="hint-note">구글 시트 동기화용 웹앱 URL. 없으면 이 기기에만 저장됩니다.<br>설치 방법: 아래 <b>Code.gs 설치 안내</b> 참고.</p>
@@ -304,26 +289,22 @@
 <script>
 /* ---------- storage ---------- */
 // 버전 표시 — 캐시된 옛 버전인지 즉시 확인용. 코드 수정 시 날짜를 올린다.
-const APP_VERSION='v2026.06.08-b';
+const APP_VERSION='v2026.06.08-c';
 const mem={};
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return mem[k]??null;}},
   set(k,v){try{localStorage.setItem(k,v);}catch(e){mem[k]=v;}}};
-const KEYS={key:'el_key',model:'el_model',list:'el_list',gasUrl:'el_gas',claudeKey:'el_ckey',claudeModel:'el_cmodel'};
+const KEYS={key:'el_key',model:'el_model',list:'el_list',gasUrl:'el_gas'};
 let MODE='single';
 
 function loadSettings(){
   document.getElementById('key').value=store.get(KEYS.key)||'';
   document.getElementById('model').value=store.get(KEYS.model)||'gemini-2.5-flash';
   document.getElementById('gasUrl').value=store.get(KEYS.gasUrl)||'';
-  document.getElementById('claudeKey').value=store.get(KEYS.claudeKey)||'';
-  document.getElementById('claudeModel').value=store.get(KEYS.claudeModel)||'claude-haiku-4-5';
 }
 function saveSettings(){
   store.set(KEYS.key,document.getElementById('key').value.trim());
   store.set(KEYS.model,(document.getElementById('model').value.trim()||'gemini-2.5-flash'));
   store.set(KEYS.gasUrl,document.getElementById('gasUrl').value.trim());
-  store.set(KEYS.claudeKey,document.getElementById('claudeKey').value.trim());
-  store.set(KEYS.claudeModel,(document.getElementById('claudeModel').value.trim()||'claude-haiku-4-5'));
   document.getElementById('setSaved').textContent='✓ 저장됨';
   setTimeout(()=>document.getElementById('setSaved').textContent='',1500);
 }
@@ -463,73 +444,10 @@ async function retryWait(attempt,RETRY){
   await sleep(RETRY[attempt]);
 }
 
-/* ---------- Claude (백업) ---------- */
-// Gemini용 스키마(propertyOrdering 사용)를 Claude 호환으로 변환:
-// propertyOrdering 제거 + 모든 객체에 additionalProperties:false 추가
-function normalizeSchemaForClaude(s){
-  if(Array.isArray(s))return s.map(normalizeSchemaForClaude);
-  if(s&&typeof s==='object'){
-    const o={};
-    for(const k in s){if(k==='propertyOrdering')continue;o[k]=normalizeSchemaForClaude(s[k]);}
-    if(o.type==='object'&&o.properties&&o.additionalProperties===undefined)o.additionalProperties=false;
-    return o;
-  }
-  return s;
-}
-// Gemini parts([{text},{inline_data}]) → Claude content 형식으로 변환
-function partsToClaude(parts){
-  return parts.map(p=>{
-    if(p.text!=null)return {type:'text',text:p.text};
-    if(p.inline_data)return {type:'image',source:{type:'base64',media_type:p.inline_data.mime_type,data:p.inline_data.data}};
-    return null;
-  }).filter(Boolean);
-}
-async function callClaude(parts,schema){
-  const key=store.get(KEYS.claudeKey);
-  if(!key)throw new Error('NO_CLAUDE_KEY');
-  const model=store.get(KEYS.claudeModel)||'claude-haiku-4-5';
-  const body={model,max_tokens:8192,messages:[{role:'user',content:partsToClaude(parts)}]};
-  // 구조화 출력으로 항상 유효한 JSON 보장
-  if(schema)body.output_config={format:{type:'json_schema',schema:normalizeSchemaForClaude(schema)}};
-  const res=await fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{
-      'content-type':'application/json',
-      'x-api-key':key,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-direct-browser-access':'true'
-    },
-    body:JSON.stringify(body)
-  });
-  if(!res.ok){const t=await res.text();throw new Error('Claude '+res.status+' · '+t.slice(0,160));}
-  const data=await res.json();
-  const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-  if(!text){
-    if(data.stop_reason==='refusal')throw new Error('Claude가 요청을 거부했어요. 다른 사진을 시도해주세요.');
-    throw new Error('Claude가 빈 응답을 보냈어요.');
-  }
-  return {text,truncated:data.stop_reason==='max_tokens'};
-}
-
-/* ---------- 통합 생성 (Gemini 기본 → 실패 시 Claude 폴백) ---------- */
+/* ---------- 생성 (Gemini 호출 + JSON 파싱) ---------- */
 async function aiGenerate(parts,schema){
-  try{
-    const resp=await callGemini(parts,true,schema);
-    return parseJson(resp.text,resp.truncated);
-  }catch(geminiErr){
-    if(geminiErr.message==='NO_KEY')throw geminiErr; // Gemini 키부터 넣게 안내
-    const claudeKey=store.get(KEYS.claudeKey);
-    if(!claudeKey)throw geminiErr; // Claude 백업 없으면 원래 에러 그대로
-    // Gemini가 과부하·형식오류 등으로 실패 → Claude로 폴백
-    setStatus('<span class="spin"></span>Gemini 실패 — Claude로 재시도 중…');
-    try{
-      const resp=await callClaude(parts,schema);
-      return parseJson(resp.text,resp.truncated);
-    }catch(claudeErr){
-      if(claudeErr.message==='NO_CLAUDE_KEY')throw geminiErr;
-      throw new Error('Gemini·Claude 모두 실패 — '+claudeErr.message);
-    }
-  }
+  const resp=await callGemini(parts,true,schema);
+  return parseJson(resp.text,resp.truncated);
 }
 // 문자열 값 내부의 "실제" 제어문자(개행/탭 등)를 \uXXXX로 이스케이프.
 // 구조적 공백(토큰 사이 개행/들여쓰기)은 건드리지 않도록 문자열 내부만 처리한다.
@@ -613,9 +531,6 @@ const PROBLEMS_SCHEMA={type:'object',properties:{problems:{type:'array',items:{
   properties:Object.fromEntries(PROB_FIELDS.map(k=>[k,{type:'string'}])),
   propertyOrdering:PROB_FIELDS
 }}},required:['problems']};
-const PRACTICE_SCHEMA={type:'object',
-  properties:{problem:{type:'string'},solution:{type:'string'},answer:{type:'string'}},
-  propertyOrdering:['problem','solution','answer'],required:['problem','solution','answer']};
 
 async function analyze(){
   if(!imgB64){setStatus('사진을 먼저 선택하세요.',true);return;}
@@ -680,8 +595,7 @@ function makeRecord(o){
     subject:o.subject||'',unit_large:o.unit_large||o.unit||'',unit_medium:o.unit_medium||'',unit_small:o.unit_small||'',
     problem_text:o.problem_text||'',key_concept:o.key_concept||'',hint:o.hint||'',
     solution:o.solution||'',answer:o.answer||'',difficulty:o.difficulty||'중',
-    wrong_answer:o.wrong_answer||'',error_type:o.error_type||'',weakness:o.weakness||'',
-    similar_level:null,similar_problem:null,similar_answer:null
+    wrong_answer:o.wrong_answer||'',error_type:o.error_type||'',weakness:o.weakness||''
   };
 }
 function saveOne(){
@@ -809,19 +723,6 @@ function openDetail(i){
       <div class="row"><label class="fld">오류 유형</label><select id="edit-errtype">${etOpts}</select></div>
       <button class="btn sm" style="width:auto" onclick="saveDetailEdits()">수정 저장</button>
       <div class="status" id="editSaved" style="text-align:left;margin-top:6px"></div>
-    </div>
-    <div class="card">
-      <div class="sec"><h3>유사문제로 연습</h3><div class="hint-note" style="margin-top:0">난이도를 골라 새 문제를 받고, 풀어본 뒤 풀이를 확인하세요.</div></div>
-      ${o.similar_problem?`<div class="practice" style="margin-bottom:10px">
-        <div class="tags"><span class="tag red">저장된 유사문제 · ${esc(o.similar_level||'')}</span></div>
-        ${sec('문제',o.similar_problem)}
-        ${o.similar_answer?`<div class="answer body" style="margin-top:6px">정답: ${esc(o.similar_answer)}</div>`:''}
-      </div>`:''}
-      <div class="diff">
-        <button onclick="practice('유사')">유사 문제</button>
-        <button onclick="practice('어렵게')">어렵게 ↑</button>
-      </div>
-      <div id="practiceBox"></div>
     </div>`;
   show('detail');renderMath(box);window.scrollTo({top:0,behavior:'smooth'});
 }
@@ -849,30 +750,6 @@ function saveDetailEdits(){
   a[i].updated_at=new Date().toISOString();
   setList(a);window._detail.o=a[i];
   const s=document.getElementById('editSaved');s.textContent='✓ 저장됨';setTimeout(()=>s.textContent='',1500);
-}
-
-/* ---------- practice ---------- */
-async function practice(level){
-  const {o,i}=window._detail||{};if(!o)return;
-  const pb=document.getElementById('practiceBox');
-  pb.innerHTML='<div class="status"><span class="spin"></span>'+level+' 유사문제 만드는 중…</div>';
-  const dir=level==='어렵게'?'원문제보다 한 단계 어렵게(응용·심화)':'원문제와 비슷한 난이도로';
-  const prompt=`학생이 틀린 문제와 개념입니다.\n[원문제] ${o.problem_text||''}\n[핵심개념] ${o.key_concept||''}\n같은 개념을 연습할 새 유사문제 1개를 ${dir} 만드세요. JSON으로만: {"problem":"문제(수식 포함)","solution":"단계별 풀이","answer":"최종 정답"}. 수식은 LaTeX($...$, $$...$$).`;
-  try{
-    const p=await aiGenerate([{text:prompt}],PRACTICE_SCHEMA);
-    pb.innerHTML=`<div class="practice">
-      <div class="tags"><span class="tag red">유사문제 · ${level}</span></div>
-      ${sec('문제',p.problem)}
-      <details class="hint"><summary>✅ 풀이·정답 보기</summary>
-        <div class="body" style="margin-top:6px">${esc(p.solution||'')}</div>
-        ${p.answer?`<div class="answer body" style="margin-top:8px">정답: ${esc(p.answer)}</div>`:''}
-      </details>
-      <div style="margin-top:10px"><span class="more" onclick="practice('${level}')">↻ 다른 문제</span></div>
-    </div>`;
-    renderMath(pb);
-    const a=getList();
-    if(a[i]){a[i].similar_level=level;a[i].similar_problem=p.problem||'';a[i].similar_answer=p.answer||'';setList(a);}
-  }catch(err){pb.innerHTML=`<div class="status err">오류: ${esc(err.message)}</div>`;}
 }
 
 /* ---------- stats ---------- */
@@ -976,9 +853,6 @@ function importData(ev){
       if(o.review_status)rec.review_status=o.review_status;
       if(o.review_count!=null)rec.review_count=o.review_count;
       if(o.last_reviewed)rec.last_reviewed=o.last_reviewed;
-      if(o.similar_level)rec.similar_level=o.similar_level;
-      if(o.similar_problem)rec.similar_problem=o.similar_problem;
-      if(o.similar_answer)rec.similar_answer=o.similar_answer;
       a.unshift(rec);
     });
     setList(a);
