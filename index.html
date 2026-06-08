@@ -205,7 +205,6 @@
         </div>
         <input type="file" id="file-cam" accept="image/*" capture="environment" hidden>
         <input type="file" id="file-lib" accept="image/*" hidden>
-        <input type="file" id="file" accept="image/*" hidden>
         <div class="preview" id="preview"><img id="pimg" alt=""></div>
       </div>
       <div class="row">
@@ -325,9 +324,9 @@ function setMode(m){MODE=m;
 
 /* ---------- image ---------- */
 let imgB64=null,imgMime=null;
-const drop=document.getElementById('drop'),file=document.getElementById('file');
+const drop=document.getElementById('drop');
 drop.onclick=()=>document.getElementById('file-lib').click();
-['file','file-cam','file-lib'].forEach(id=>{
+['file-cam','file-lib'].forEach(id=>{
   const el=document.getElementById(id);
   if(el)el.onchange=e=>{if(e.target.files[0])loadImg(e.target.files[0]);};
 });
@@ -335,9 +334,45 @@ drop.onclick=()=>document.getElementById('file-lib').click();
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
 drop.addEventListener('drop',e=>{if(e.dataTransfer.files[0])loadImg(e.dataTransfer.files[0]);});
 window.addEventListener('paste',e=>{const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith('image/'));if(it)loadImg(it.getAsFile());});
-function loadImg(f){const r=new FileReader();r.onload=()=>{imgB64=r.result.split(',')[1];imgMime=f.type||'image/jpeg';
-  document.getElementById('pimg').src=r.result;document.getElementById('preview').style.display='block';
-  document.getElementById('go').disabled=false;};r.readAsDataURL(f);}
+function loadImg(f){
+  setStatus('<span class="spin"></span>이미지 준비 중…');
+  const r=new FileReader();
+  r.onload=()=>{
+    const dataUrl=r.result;
+    const img=new Image();
+    img.onload=()=>{
+      // canvas로 최대 1600px 리사이즈 + JPEG 변환 (HEIC·대용량·속도 대응)
+      try{
+        const MAX=1600;
+        let{width:w,height:h}=img;
+        if(w>MAX||h>MAX){const s=MAX/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s);}
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        const jpeg=cv.toDataURL('image/jpeg',0.85);
+        imgB64=jpeg.split(',')[1];imgMime='image/jpeg';
+        showPreview(jpeg);
+      }catch(e){
+        // 변환 실패 시 원본 사용
+        imgB64=dataUrl.split(',')[1];imgMime=f.type||'image/jpeg';
+        showPreview(dataUrl);
+      }
+    };
+    img.onerror=()=>{
+      // 브라우저가 디코드 못하는 포맷(일부 HEIC 등): 원본 그대로 전송 시도
+      imgB64=dataUrl.split(',')[1];imgMime=f.type||'image/jpeg';
+      showPreview(dataUrl);
+    };
+    img.src=dataUrl;
+  };
+  r.onerror=()=>setStatus('사진을 읽지 못했어요. 다른 사진을 시도해주세요.',true);
+  r.readAsDataURL(f);
+}
+function showPreview(src){
+  document.getElementById('pimg').src=src;
+  document.getElementById('preview').style.display='block';
+  document.getElementById('go').disabled=false;
+  setStatus('');
+}
 
 /* ---------- Gemini ---------- */
 async function callGemini(parts,wantJson){
@@ -354,26 +389,24 @@ async function callGemini(parts,wantJson){
 }
 function parseJson(raw){
   const cleaned=raw.replace(/^```json\s*|\s*```$/g,'').trim();
-  // 1차: 그대로 파싱
+  // 1차: 그대로 파싱 (Gemini가 올바른 JSON을 준 경우)
   try{return JSON.parse(cleaned);}catch(e){}
-  // 2차: LaTeX 비표준 이스케이프 복구
-  // - \{ \} \[ \] 등 기호: 항상 수정
-  // - \frac \alpha 등 알파벳: 수정
-  // - \n \t \r \b 등 단독 JSON 이스케이프: 뒤에 알파벳이 오면 LaTeX로 판단해 수정
+  // 2차: 유효하지 않은 백슬래시 이스케이프만 복구.
+  // lookahead로 "다음 문자가 유효한 JSON 이스케이프(" \ / b f n r t u)가 아닐 때"만
+  // 백슬래시를 이중화한다. 이미 \\ 로 올바르게 이스케이프된 LaTeX(\\frac 등)는
+  // 첫 \ 의 다음이 \ 라서 매치되지 않으므로 그대로 보존된다.
+  // 예) \{ → \\{,  \sqrt → \\sqrt,  \alpha → \\alpha,  \\frac → 보존
   try{
-    const f1=cleaned.replace(
-      /\\([^"\\\/bfnrtu\s]|[bfnrtu](?=[a-zA-Z]))/g,'\\\\$1');
-    return JSON.parse(f1);
+    const fixed=cleaned.replace(/\\(?!["\\/bfnrtu])/g,'\\\\');
+    return JSON.parse(fixed);
   }catch(e){}
-  // 3차: 모든 백슬래시 이중화 후 표준 JSON 이스케이프만 복원
+  // 3차: 가장 흔한 LaTeX 명령어(\frac \times 등 b f n r t 로 시작)도 강제 복구.
+  // \f \n \t \b \r 는 JSON에서 유효하지만 뒤에 알파벳이 오면 LaTeX로 간주.
   try{
-    const f2=cleaned
-      .replace(/\\/g,'\\\\')          // 모든 \ → \\
-      .replace(/\\\\"/g,'\\"')        // \\" → \" (큰따옴표)
-      .replace(/\\\\n/g,'\\n')        // \\n → \n (줄바꿈)
-      .replace(/\\\\r/g,'\\r')        // \\r → \r
-      .replace(/\\\\t/g,'\\t');       // \\t → \t
-    return JSON.parse(f2);
+    const fixed=cleaned
+      .replace(/\\(?!["\\/bfnrtu])/g,'\\\\')
+      .replace(/\\([bfnrt])(?=[a-zA-Z])/g,'\\\\$1');
+    return JSON.parse(fixed);
   }catch(e){}
   throw new Error('AI 응답 형식 오류 — 다시 시도해주세요.');
 }
@@ -405,7 +438,7 @@ async function analyze(){
 function setStatus(h,e){const s=document.getElementById('status');s.innerHTML=h;s.classList.toggle('err',!!e);}
 
 /* ---------- helpers ---------- */
-function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function sec(t,b){return `<div class="sec"><h3>${t}</h3><div class="body">${esc(b)}</div></div>`;}
 function reviewBadgeClass(rs){return rs==='완료'?'green':rs==='복습중'?'gold':'';}
 function reviewBadgeHtml(rs){
@@ -731,7 +764,23 @@ function exportData(fmt){
 function importData(ev){
   const f=ev.target.files[0];if(!f)return;const r=new FileReader();
   r.onload=()=>{try{const inc=JSON.parse(r.result);if(!Array.isArray(inc))throw 0;
-    const a=getList();inc.forEach(o=>a.unshift(o));setList(a);
+    const a=getList();
+    // 누락된 시스템 필드(id 등)를 보정해야 목록·동기화에서 누락되지 않음
+    inc.forEach(o=>{
+      const rec=makeRecord(o);
+      // 원본의 시스템 값이 있으면 보존
+      if(o.id)rec.id=o.id;
+      if(o.created_at||o._date)rec.created_at=o.created_at||o._date;
+      if(o.updated_at)rec.updated_at=o.updated_at;
+      if(o.review_status)rec.review_status=o.review_status;
+      if(o.review_count!=null)rec.review_count=o.review_count;
+      if(o.last_reviewed)rec.last_reviewed=o.last_reviewed;
+      if(o.similar_level)rec.similar_level=o.similar_level;
+      if(o.similar_problem)rec.similar_problem=o.similar_problem;
+      if(o.similar_answer)rec.similar_answer=o.similar_answer;
+      a.unshift(rec);
+    });
+    setList(a);
     alert(`${inc.length}개 문제를 가져왔어요.`);renderList();
   }catch(e){alert('가져오기 실패: JSON 형식이 아닙니다.');}};
   r.readAsText(f);ev.target.value='';
