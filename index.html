@@ -526,9 +526,11 @@ const PROMPT_FULL=`당신은 채점된 시험지를 첨삭하는 한국 선생�
 
 // 구조화된 출력 스키마 — Gemini가 항상 유효한 JSON을 생성하도록 강제
 const PROB_FIELDS=['subject','unit_large','unit_medium','unit_small','problem_text','key_concept','hint','solution','answer','difficulty','wrong_answer','error_type','weakness'];
+// 일부 필드에 설명을 달아 Gemini가 형식을 지키도록 유도 (특히 풀이 줄바꿈)
+const FIELD_DESC={solution:'단계별 풀이. 각 단계가 끝날 때마다 줄바꿈을 넣어 단계를 구분한다.'};
 const PROBLEMS_SCHEMA={type:'object',properties:{problems:{type:'array',items:{
   type:'object',
-  properties:Object.fromEntries(PROB_FIELDS.map(k=>[k,{type:'string'}])),
+  properties:Object.fromEntries(PROB_FIELDS.map(k=>[k,FIELD_DESC[k]?{type:'string',description:FIELD_DESC[k]}:{type:'string'}])),
   propertyOrdering:PROB_FIELDS
 }}},required:['problems']};
 
