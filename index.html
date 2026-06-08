@@ -258,7 +258,7 @@
       <div class="row">
         <label class="fld">모델</label>
         <input type="text" id="model" placeholder="gemini-2.5-flash">
-        <p class="hint-note">기본 <b>gemini-2.5-flash</b>. 채점 표시 인식이 약하면 <b>gemini-2.5-pro</b>로.</p>
+        <p class="hint-note">기본 <b>gemini-2.5-flash</b> 권장(빠르고 혼잡이 적음). 채점 표시 인식이 약하면 <b>gemini-2.5-pro</b>로. <br>pro가 혼잡하면 자동으로 flash로 전환됩니다.</p>
       </div>
       <div class="row">
         <label class="fld">동기화 · Apps Script URL <span style="font-weight:400">(선택)</span></label>
@@ -376,10 +376,24 @@ function showPreview(src){
 
 /* ---------- Gemini ---------- */
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const FALLBACK_MODEL='gemini-2.5-flash';
+// 설정 모델로 호출하다 과부하로 실패하면 flash로 자동 폴백
 async function callGemini(parts,wantJson){
+  const primary=store.get(KEYS.model)||FALLBACK_MODEL;
+  try{
+    return await callModel(primary,parts,wantJson);
+  }catch(err){
+    if(err.overloaded&&primary!==FALLBACK_MODEL){
+      setStatus(`<span class="spin"></span>${primary} 혼잡 — ${FALLBACK_MODEL}로 자동 전환…`);
+      await sleep(800);
+      return await callModel(FALLBACK_MODEL,parts,wantJson);
+    }
+    throw err;
+  }
+}
+async function callModel(model,parts,wantJson){
   const key=store.get(KEYS.key);
   if(!key)throw new Error('NO_KEY');
-  const model=store.get(KEYS.model)||'gemini-2.5-flash';
   const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
   // maxOutputTokens를 크게 잡아 응답 잘림(JSON 중간 끊김)을 방지
   const body={contents:[{parts}],generationConfig:{temperature:0.5,maxOutputTokens:8192}};
@@ -416,8 +430,9 @@ async function callGemini(parts,wantJson){
     if([429,500,503].includes(res.status)&&attempt<RETRY.length){
       await retryWait(attempt,RETRY);continue;
     }
-    if(res.status===503)throw new Error('서버가 잠시 혼잡해요. 잠시 후 다시 시도하거나 설정에서 모델을 flash로 바꿔보세요.');
-    if(res.status===429)throw new Error('요청이 많아 한도에 걸렸어요. 1~2분 후 다시 시도해주세요.');
+    if(res.status===503){const e=new Error('서버가 잠시 혼잡해요. 잠시 후 다시 시도해주세요.');e.overloaded=true;throw e;}
+    if(res.status===429){const e=new Error('요청이 많아 한도에 걸렸어요. 1~2분 후 다시 시도해주세요.');e.overloaded=true;throw e;}
+    if(res.status===500){const e=new Error('서버 내부 오류가 발생했어요. 다시 시도해주세요.');e.overloaded=true;throw e;}
     throw new Error('API '+res.status+' · '+t.slice(0,160));
   }
 }
