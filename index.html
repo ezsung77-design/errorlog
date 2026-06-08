@@ -180,7 +180,7 @@
       <button class="gear" onclick="show('set')">⚙ 설정</button>
     </div>
   </header>
-  <p class="tagline">시험지를 찍으면 <b>틀린 문제만</b> 골라 첨삭 · 난이도별 유사문제로 연습 · 친구와 공유.</p>
+  <p class="tagline">시험지를 찍으면 <b>틀린 문제만</b> 골라 첨삭 · 난이도별 유사문제로 연습 · 친구와 공유. <span id="verTag" style="color:var(--gold);font-weight:600"></span></p>
   <div class="status" id="syncStatus" style="text-align:right;margin:-12px 0 10px;min-height:16px;font-size:12px"></div>
 
   <div class="tabs">
@@ -293,6 +293,8 @@
 
 <script>
 /* ---------- storage ---------- */
+// 버전 표시 — 캐시된 옛 버전인지 즉시 확인용. 코드 수정 시 날짜를 올린다.
+const APP_VERSION='v2026.06.08-a';
 const mem={};
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return mem[k]??null;}},
   set(k,v){try{localStorage.setItem(k,v);}catch(e){mem[k]=v;}}};
@@ -937,6 +939,9 @@ function renderMath(el){if(window.renderMathInElement)renderMathInElement(el,{de
   {left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}],throwOnError:false});}
 
 loadSettings();
+// 버전 표시 (캐시 확인용)
+(function(){const t=document.getElementById('verTag');if(t)t.textContent=APP_VERSION;
+  console.log('오답 로그 '+APP_VERSION);})();
 </script>
 </body>
 </html>
