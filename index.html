@@ -261,6 +261,16 @@
         <p class="hint-note">기본 <b>gemini-2.5-flash</b> 권장(빠르고 혼잡이 적음). 채점 표시 인식이 약하면 <b>gemini-2.5-pro</b>로. <br>pro가 혼잡하면 자동으로 flash로 전환됩니다.</p>
       </div>
       <div class="row">
+        <label class="fld">Claude API 키 <span style="font-weight:400">(백업 · 선택)</span></label>
+        <input type="password" id="claudeKey" placeholder="sk-ant-...">
+        <p class="hint-note">Gemini가 실패(혼잡·형식오류)하면 <b>자동으로 Claude로 재시도</b>합니다. 없으면 Gemini만 사용. 발급: <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> (유료, 충전식)</p>
+      </div>
+      <div class="row">
+        <label class="fld">Claude 모델</label>
+        <input type="text" id="claudeModel" placeholder="claude-haiku-4-5">
+        <p class="hint-note">백업용 기본 <b>claude-haiku-4-5</b>(가장 저렴). 정확도 우선이면 <b>claude-sonnet-4-6</b> 또는 <b>claude-opus-4-8</b>.</p>
+      </div>
+      <div class="row">
         <label class="fld">동기화 · Apps Script URL <span style="font-weight:400">(선택)</span></label>
         <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/…/exec">
         <p class="hint-note">구글 시트 동기화용 웹앱 URL. 없으면 이 기기에만 저장됩니다.<br>설치 방법: 아래 <b>Code.gs 설치 안내</b> 참고.</p>
@@ -294,22 +304,26 @@
 <script>
 /* ---------- storage ---------- */
 // 버전 표시 — 캐시된 옛 버전인지 즉시 확인용. 코드 수정 시 날짜를 올린다.
-const APP_VERSION='v2026.06.08-a';
+const APP_VERSION='v2026.06.08-b';
 const mem={};
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return mem[k]??null;}},
   set(k,v){try{localStorage.setItem(k,v);}catch(e){mem[k]=v;}}};
-const KEYS={key:'el_key',model:'el_model',list:'el_list',gasUrl:'el_gas'};
+const KEYS={key:'el_key',model:'el_model',list:'el_list',gasUrl:'el_gas',claudeKey:'el_ckey',claudeModel:'el_cmodel'};
 let MODE='single';
 
 function loadSettings(){
   document.getElementById('key').value=store.get(KEYS.key)||'';
   document.getElementById('model').value=store.get(KEYS.model)||'gemini-2.5-flash';
   document.getElementById('gasUrl').value=store.get(KEYS.gasUrl)||'';
+  document.getElementById('claudeKey').value=store.get(KEYS.claudeKey)||'';
+  document.getElementById('claudeModel').value=store.get(KEYS.claudeModel)||'claude-haiku-4-5';
 }
 function saveSettings(){
   store.set(KEYS.key,document.getElementById('key').value.trim());
   store.set(KEYS.model,(document.getElementById('model').value.trim()||'gemini-2.5-flash'));
   store.set(KEYS.gasUrl,document.getElementById('gasUrl').value.trim());
+  store.set(KEYS.claudeKey,document.getElementById('claudeKey').value.trim());
+  store.set(KEYS.claudeModel,(document.getElementById('claudeModel').value.trim()||'claude-haiku-4-5'));
   document.getElementById('setSaved').textContent='✓ 저장됨';
   setTimeout(()=>document.getElementById('setSaved').textContent='',1500);
 }
@@ -448,6 +462,75 @@ async function retryWait(attempt,RETRY){
   setStatus(`<span class="spin"></span>서버 혼잡 — ${sec}초 후 재시도 (${attempt+1}/${RETRY.length})…`);
   await sleep(RETRY[attempt]);
 }
+
+/* ---------- Claude (백업) ---------- */
+// Gemini용 스키마(propertyOrdering 사용)를 Claude 호환으로 변환:
+// propertyOrdering 제거 + 모든 객체에 additionalProperties:false 추가
+function normalizeSchemaForClaude(s){
+  if(Array.isArray(s))return s.map(normalizeSchemaForClaude);
+  if(s&&typeof s==='object'){
+    const o={};
+    for(const k in s){if(k==='propertyOrdering')continue;o[k]=normalizeSchemaForClaude(s[k]);}
+    if(o.type==='object'&&o.properties&&o.additionalProperties===undefined)o.additionalProperties=false;
+    return o;
+  }
+  return s;
+}
+// Gemini parts([{text},{inline_data}]) → Claude content 형식으로 변환
+function partsToClaude(parts){
+  return parts.map(p=>{
+    if(p.text!=null)return {type:'text',text:p.text};
+    if(p.inline_data)return {type:'image',source:{type:'base64',media_type:p.inline_data.mime_type,data:p.inline_data.data}};
+    return null;
+  }).filter(Boolean);
+}
+async function callClaude(parts,schema){
+  const key=store.get(KEYS.claudeKey);
+  if(!key)throw new Error('NO_CLAUDE_KEY');
+  const model=store.get(KEYS.claudeModel)||'claude-haiku-4-5';
+  const body={model,max_tokens:8192,messages:[{role:'user',content:partsToClaude(parts)}]};
+  // 구조화 출력으로 항상 유효한 JSON 보장
+  if(schema)body.output_config={format:{type:'json_schema',schema:normalizeSchemaForClaude(schema)}};
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'content-type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify(body)
+  });
+  if(!res.ok){const t=await res.text();throw new Error('Claude '+res.status+' · '+t.slice(0,160));}
+  const data=await res.json();
+  const text=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  if(!text){
+    if(data.stop_reason==='refusal')throw new Error('Claude가 요청을 거부했어요. 다른 사진을 시도해주세요.');
+    throw new Error('Claude가 빈 응답을 보냈어요.');
+  }
+  return {text,truncated:data.stop_reason==='max_tokens'};
+}
+
+/* ---------- 통합 생성 (Gemini 기본 → 실패 시 Claude 폴백) ---------- */
+async function aiGenerate(parts,schema){
+  try{
+    const resp=await callGemini(parts,true,schema);
+    return parseJson(resp.text,resp.truncated);
+  }catch(geminiErr){
+    if(geminiErr.message==='NO_KEY')throw geminiErr; // Gemini 키부터 넣게 안내
+    const claudeKey=store.get(KEYS.claudeKey);
+    if(!claudeKey)throw geminiErr; // Claude 백업 없으면 원래 에러 그대로
+    // Gemini가 과부하·형식오류 등으로 실패 → Claude로 폴백
+    setStatus('<span class="spin"></span>Gemini 실패 — Claude로 재시도 중…');
+    try{
+      const resp=await callClaude(parts,schema);
+      return parseJson(resp.text,resp.truncated);
+    }catch(claudeErr){
+      if(claudeErr.message==='NO_CLAUDE_KEY')throw geminiErr;
+      throw new Error('Gemini·Claude 모두 실패 — '+claudeErr.message);
+    }
+  }
+}
 // 문자열 값 내부의 "실제" 제어문자(개행/탭 등)를 \uXXXX로 이스케이프.
 // 구조적 공백(토큰 사이 개행/들여쓰기)은 건드리지 않도록 문자열 내부만 처리한다.
 function escapeCtrlInStrings(s){
@@ -542,8 +625,7 @@ async function analyze(){
   document.getElementById('result').innerHTML='';
   const prompt=(MODE==='full'?PROMPT_FULL:PROMPT_SINGLE)+(hint?`\n[사용자 힌트] ${hint}`:'');
   try{
-    const resp=await callGemini([{text:prompt},{inline_data:{mime_type:imgMime,data:imgB64}}],true,PROBLEMS_SCHEMA);
-    const obj=parseJson(resp.text,resp.truncated);
+    const obj=await aiGenerate([{text:prompt},{inline_data:{mime_type:imgMime,data:imgB64}}],PROBLEMS_SCHEMA);
     const probs=Array.isArray(obj)?obj:(obj.problems||[]);
     setStatus('');
     if(!probs.length){setStatus('표시된 틀린 문제를 찾지 못했어요. 표시가 뚜렷한지, 또는 pro 모델을 시도해보세요.',true);go.disabled=false;return;}
@@ -777,7 +859,7 @@ async function practice(level){
   const dir=level==='어렵게'?'원문제보다 한 단계 어렵게(응용·심화)':'원문제와 비슷한 난이도로';
   const prompt=`학생이 틀린 문제와 개념입니다.\n[원문제] ${o.problem_text||''}\n[핵심개념] ${o.key_concept||''}\n같은 개념을 연습할 새 유사문제 1개를 ${dir} 만드세요. JSON으로만: {"problem":"문제(수식 포함)","solution":"단계별 풀이","answer":"최종 정답"}. 수식은 LaTeX($...$, $$...$$).`;
   try{
-    const resp=await callGemini([{text:prompt}],true,PRACTICE_SCHEMA);const p=parseJson(resp.text,resp.truncated);
+    const p=await aiGenerate([{text:prompt}],PRACTICE_SCHEMA);
     pb.innerHTML=`<div class="practice">
       <div class="tags"><span class="tag red">유사문제 · ${level}</span></div>
       ${sec('문제',p.problem)}
