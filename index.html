@@ -199,7 +199,7 @@
       <div class="row">
         <label class="fld">사진</label>
         <div class="drop" id="drop"><span class="ico">📷</span>탭하여 촬영하거나 사진 선택<br><span style="font-size:12px">(붙여넣기 · 드래그도 가능)</span></div>
-        <input type="file" id="file" accept="image/*" capture="environment" hidden>
+        <input type="file" id="file" accept="image/*" hidden>
         <div class="preview" id="preview"><img id="pimg" alt=""></div>
       </div>
       <div class="row">
@@ -343,11 +343,22 @@ async function callGemini(parts,wantJson){
   const data=await res.json();
   return data?.candidates?.[0]?.content?.parts?.map(p=>p.text).join('')||'';
 }
-function parseJson(raw){return JSON.parse(raw.replace(/^```json\s*|\s*```$/g,'').trim());}
+function parseJson(raw){
+  const cleaned=raw.replace(/^```json\s*|\s*```$/g,'').trim();
+  try{return JSON.parse(cleaned);}
+  catch(e){
+    // LaTeX 백슬래시(\frac, \{, \alpha 등)가 JSON 이스케이프를 깨는 경우 자동 복구
+    const fixed=cleaned
+      .replace(/\\([{}[\]()^_|<>])/g,'\\\\$1')  // \{ \} \[ \] 등 기호류
+      .replace(/\\([a-zA-Z]+)/g,'\\\\$1');        // \frac \sum \alpha 등 명령어
+    try{return JSON.parse(fixed);}
+    catch(e2){throw new Error('AI 응답 형식 오류 — 다시 시도해주세요.');}
+  }
+}
 
 const SCHEMA=`각 문제는 다음 JSON 형식: {"subject":"과목","unit_large":"대단원","unit_medium":"중단원","unit_small":"소단원(없으면 빈 문자열)","problem_text":"문제 원문(수식 포함)","key_concept":"핵심 개념","hint":"정답을 바로 주지 않는 단계적 힌트","solution":"단계별 풀이","answer":"최종 정답","difficulty":"하|중|상 중 하나","wrong_answer":"학생의 오답(사진에서 보이면 기재, 안 보이면 빈 문자열)","error_type":"개념부족|계산실수|문제이해|조건누락|시간부족|단순실수 중 추정값(불명확하면 빈 문자열)","weakness":"약점·복습 포인트"}. 수식은 LaTeX(인라인 $...$, 블록 $$...$$). JSON 외 텍스트 금지.`;
 const PROMPT_SINGLE=`당신은 한국 선생님입니다. 이미지의 문제 1개를 분석해 {"problems":[ ... ]} 형식(배열 1개)으로 응답하세요. `+SCHEMA;
-const PROMPT_FULL=`당신은 채점된 시험지를 첨삭하는 한국 선생님입니다. 이미지에서 X 또는 사선(/)으로 '틀림' 표시된 문제만 찾으세요. O·✓·무표시 문제는 절대 포함하지 말고, 표시가 모호하면 제외하세요. 사진에 학생의 풀이나 답이 보이면 wrong_answer와 error_type을 추정해 채우고, 안 보이면 빈 문자열로 두세요. 찾은 문제들을 {"problems":[ ... ]} 배열로 응답하고, 없으면 빈 배열로 응답하세요. `+SCHEMA;
+const PROMPT_FULL=`당신은 채점된 시험지를 첨삭하는 한국 선생님입니다. 이미지에서 다음 표시 중 하나가 있는 문제를 '틀린 문제'로 인식하세요: X, ×, 사선(/), 세모(△, ▽, ∆), 별표(*), 물음표(?). 단, O(동그라미), ◯, ✓(체크), 무표시 문제는 절대 포함하지 마세요. 표시가 모호하면 제외하세요. 사진에 학생의 풀이나 답이 보이면 wrong_answer와 error_type을 추정해 채우고, 안 보이면 빈 문자열로 두세요. 찾은 문제들을 {"problems":[ ... ]} 배열로 응답하고, 없으면 빈 배열로 응답하세요. `+SCHEMA;
 
 async function analyze(){
   if(!imgB64){setStatus('사진을 먼저 선택하세요.',true);return;}
