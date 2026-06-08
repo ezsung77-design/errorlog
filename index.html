@@ -289,7 +289,7 @@
 <script>
 /* ---------- storage ---------- */
 // 버전 표시 — 캐시된 옛 버전인지 즉시 확인용. 코드 수정 시 날짜를 올린다.
-const APP_VERSION='v2026.06.08-e';
+const APP_VERSION='v2026.06.08-f';
 const mem={};
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return mem[k]??null;}},
   set(k,v){try{localStorage.setItem(k,v);}catch(e){mem[k]=v;}}};
@@ -558,11 +558,14 @@ function setStatus(h,e){const s=document.getElementById('status');s.innerHTML=h;
 /* ---------- helpers ---------- */
 function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function sec(t,b){return `<div class="sec"><h3>${t}</h3><div class="body">${esc(b)}</div></div>`;}
-// 풀이 줄바꿈 안전망: AI가 줄바꿈을 안 넣었으면 한국어 문장 끝(어미+마침표)에서 줄바꿈
+// 풀이 줄바꿈 안전망: AI가 줄바꿈을 안 넣었으면 한국어 문장 끝(어미+마침표)에서 줄바꿈.
+// 마침표 뒤에 공백이 없어도(예: "입니다.2.") 줄바꿈하고, 단계 번호(예: "2.") 앞도 분리.
 function formatSolution(s){
   s=String(s||'');
   if(s.indexOf('\n')>=0)return s;
-  return s.replace(/([다요됨음함])\.\s+/g,'$1.\n');
+  return s
+    .replace(/([다요죠음함됨임])\.\s*/g,'$1.\n')   // 한국어 문장 끝 어미+마침표 뒤 줄바꿈
+    .replace(/\n+/g,'\n').trim();
 }
 function reviewBadgeClass(rs){return rs==='완료'?'green':rs==='복습중'?'gold':'';}
 function reviewBadgeHtml(rs){
