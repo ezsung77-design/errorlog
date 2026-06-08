@@ -108,7 +108,7 @@
   .pcard.open .ex{display:block;}
   .more{font-size:12px;color:var(--red);cursor:pointer;font-weight:600;margin-top:6px;display:inline-block;}
 
-  .status{font-size:13px;color:var(--ink-soft);text-align:center;margin:10px 0;min-height:18px;}
+  .status{font-size:13px;color:var(--ink-soft);text-align:center;margin:10px 0;min-height:18px;white-space:pre-line;word-break:break-word;}
   .status.err{color:var(--red);}
   .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--red);
     border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px;}
@@ -441,13 +441,37 @@ async function retryWait(attempt,RETRY){
   setStatus(`<span class="spin"></span>서버 혼잡 — ${sec}초 후 재시도 (${attempt+1}/${RETRY.length})…`);
   await sleep(RETRY[attempt]);
 }
-// 백슬래시 이스케이프 복구 단계들을 차례로 시도
+// 문자열 값 내부의 "실제" 제어문자(개행/탭 등)를 \uXXXX로 이스케이프.
+// 구조적 공백(토큰 사이 개행/들여쓰기)은 건드리지 않도록 문자열 내부만 처리한다.
+function escapeCtrlInStrings(s){
+  let out='',inStr=false,esc=false;
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    if(esc){out+=c;esc=false;continue;}
+    if(c==='\\'){out+=c;esc=true;continue;}
+    if(c==='"'){inStr=!inStr;out+=c;continue;}
+    if(inStr){
+      const code=c.charCodeAt(0);
+      if(code<0x20){out+='\\u'+code.toString(16).padStart(4,'0');continue;}
+    }
+    out+=c;
+  }
+  return out;
+}
+// 백슬래시 이스케이프 + 제어문자 복구 단계들을 차례로 시도
 function tryParseVariants(s){
-  try{return JSON.parse(s);}catch(e){}
-  // 유효하지 않은 백슬래시 이스케이프만 이중화 (이미 올바른 \\frac 등은 보존)
-  try{return JSON.parse(s.replace(/\\(?!["\\/bfnrtu])/g,'\\\\'));}catch(e){}
-  // \f \t \b \r \n + 알파벳은 LaTeX 명령어로 간주해 추가 복구
-  try{return JSON.parse(s.replace(/\\(?!["\\/bfnrtu])/g,'\\\\').replace(/\\([bfnrt])(?=[a-zA-Z])/g,'\\\\$1'));}catch(e){}
+  const slashFix=x=>x.replace(/\\(?!["\\/bfnrtu])/g,'\\\\');
+  const cmdFix=x=>slashFix(x).replace(/\\([bfnrt])(?=[a-zA-Z])/g,'\\\\$1');
+  // 백슬래시 복구만 / 제어문자 복구만 / 둘 다 — 모든 조합을 순서대로 시도
+  const variants=[
+    s,
+    slashFix(s),
+    cmdFix(s),
+    escapeCtrlInStrings(s),
+    slashFix(escapeCtrlInStrings(s)),
+    cmdFix(escapeCtrlInStrings(s)),
+  ];
+  for(const v of variants){try{return JSON.parse(v);}catch(e){}}
   return undefined;
 }
 // 토큰 한도로 잘린 JSON에서 완성된 부분만 살려낸다.
@@ -481,8 +505,10 @@ function parseJson(raw,truncated){
   // 모두 실패
   if(truncated)
     throw new Error('응답이 너무 길어 잘렸어요. "단일 문제" 모드로 한 문제씩 찍거나, 사진을 나눠 시도해주세요.');
-  console.warn('parseJson 실패. 원본 응답 앞부분:',cleaned.slice(0,300));
-  throw new Error('AI 응답 형식 오류 — 다시 시도해주세요. (콘솔에 원본 기록)');
+  console.warn('parseJson 실패. 원본 응답:',cleaned);
+  // 진단을 위해 원본 앞부분을 에러에 포함 (사용자가 캡처해 알려줄 수 있도록)
+  const peek=cleaned.slice(0,140).replace(/\s+/g,' ');
+  throw new Error('AI 응답 형식 오류 — 다시 시도해주세요.\n[받은 응답 일부] '+peek);
 }
 
 const SCHEMA=`각 문제는 다음 JSON 형식: {"subject":"과목","unit_large":"대단원","unit_medium":"중단원","unit_small":"소단원(없으면 빈 문자열)","problem_text":"문제 원문(수식 포함)","key_concept":"핵심 개념","hint":"정답을 바로 주지 않는 단계적 힌트","solution":"단계별 풀이","answer":"최종 정답","difficulty":"하|중|상 중 하나","wrong_answer":"학생의 오답(사진에서 보이면 기재, 안 보이면 빈 문자열)","error_type":"개념부족|계산실수|문제이해|조건누락|시간부족|단순실수 중 추정값(불명확하면 빈 문자열)","weakness":"약점·복습 포인트"}. 수식은 LaTeX(인라인 $...$, 블록 $$...$$). JSON 외 텍스트 금지.`;
