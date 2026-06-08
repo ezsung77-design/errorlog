@@ -289,7 +289,7 @@
 <script>
 /* ---------- storage ---------- */
 // 버전 표시 — 캐시된 옛 버전인지 즉시 확인용. 코드 수정 시 날짜를 올린다.
-const APP_VERSION='v2026.06.08-d';
+const APP_VERSION='v2026.06.08-e';
 const mem={};
 const store={get(k){try{return localStorage.getItem(k);}catch(e){return mem[k]??null;}},
   set(k,v){try{localStorage.setItem(k,v);}catch(e){mem[k]=v;}}};
@@ -558,6 +558,12 @@ function setStatus(h,e){const s=document.getElementById('status');s.innerHTML=h;
 /* ---------- helpers ---------- */
 function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function sec(t,b){return `<div class="sec"><h3>${t}</h3><div class="body">${esc(b)}</div></div>`;}
+// 풀이 줄바꿈 안전망: AI가 줄바꿈을 안 넣었으면 한국어 문장 끝(어미+마침표)에서 줄바꿈
+function formatSolution(s){
+  s=String(s||'');
+  if(s.indexOf('\n')>=0)return s;
+  return s.replace(/([다요됨음함])\.\s+/g,'$1.\n');
+}
 function reviewBadgeClass(rs){return rs==='완료'?'green':rs==='복습중'?'gold':'';}
 function reviewBadgeHtml(rs){
   if(!rs||rs==='안함')return '';
@@ -579,7 +585,7 @@ function problemHtml(o){
     ${o.wrong_answer?sec('내 오답',o.wrong_answer):''}
     ${o.key_concept?sec('핵심 개념',o.key_concept):''}
     ${o.hint?`<div class="sec"><details class="hint"><summary>💡 힌트 보기</summary><div class="body">${esc(o.hint)}</div></details></div>`:''}
-    ${o.solution?`<div class="sec"><h3>풀이</h3><div class="body" style="white-space:pre-line">${esc(o.solution)}</div></div>`:''}
+    ${o.solution?`<div class="sec"><h3>풀이</h3><div class="body" style="white-space:pre-line">${esc(formatSolution(o.solution))}</div></div>`:''}
     ${o.answer?`<div class="sec"><h3>정답</h3><div class="answer body">${esc(o.answer)}</div></div>`:''}
     ${o.weakness?sec('약점 · 복습',o.weakness):''}`;
 }
