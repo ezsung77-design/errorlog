@@ -707,7 +707,7 @@ function delItem(i){const a=getList();a.splice(i,1);setList(a);renderList();}
 
 /* ---------- detail ---------- */
 const ERROR_TYPES=['','개념부족','계산실수','문제이해','조건누락','시간부족','단순실수'];
-function openDetail(i){
+function openDetail(i,keepScroll){
   const o=getList()[i];if(!o)return;
   window._detail={o,i};
   const box=document.getElementById('detailBox');
@@ -732,10 +732,13 @@ function openDetail(i){
       <div class="row"><label class="fld">난이도</label><select id="edit-diff">${diffOpts}</select></div>
       <div class="row"><label class="fld">내 오답</label><input type="text" id="edit-wrong" value="${esc(o.wrong_answer||'')}" placeholder="내가 쓴 답"></div>
       <div class="row"><label class="fld">오류 유형</label><select id="edit-errtype">${etOpts}</select></div>
+      <div class="row"><label class="fld">핵심 개념</label><textarea id="edit-concept" rows="2">${esc(o.key_concept||'')}</textarea></div>
+      <div class="row"><label class="fld">풀이 <span style="font-weight:400">(줄바꿈으로 단계 구분)</span></label><textarea id="edit-solution" rows="6">${esc(o.solution||'')}</textarea></div>
+      <div class="row"><label class="fld">정답</label><input type="text" id="edit-answer" value="${esc(o.answer||'')}"></div>
       <button class="btn sm" style="width:auto" onclick="saveDetailEdits()">수정 저장</button>
       <div class="status" id="editSaved" style="text-align:left;margin-top:6px"></div>
     </div>`;
-  show('detail');renderMath(box);window.scrollTo({top:0,behavior:'smooth'});
+  show('detail');renderMath(box);if(!keepScroll)window.scrollTo({top:0,behavior:'smooth'});
 }
 
 function setReviewStatus(val){
