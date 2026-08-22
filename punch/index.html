@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>펀치리스트 · 아파트 현장</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="펀치리스트">
+<meta name="theme-color" content="#12233a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+:root{
+  --bg:#eef1f5; --card:#fff; --ink:#12233a; --ink-soft:#5b6b80; --line:#d8dfe8;
+  --navy:#12233a; --orange:#f2660c; --orange-soft:#fff1e6;
+  --red:#d32f2f; --amber:#f9a825; --green:#2e7d32; --blue:#1565c0; --gray:#78909c;
+  --shadow:0 1px 2px rgba(18,35,58,.06), 0 8px 24px -14px rgba(18,35,58,.35);
+  --tap:48px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);font-family:"Pretendard","Pretendard Variable",-apple-system,BlinkMacSystemFont,sans-serif;
+  line-height:1.55;-webkit-font-smoothing:antialiased;font-size:15px;}
+.wrap{max-width:720px;margin:0 auto;padding:0 14px 96px;}
+
+header{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;margin:0 -14px 14px;
+  padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.brand{display:flex;align-items:center;gap:9px;min-width:0;}
+.brand .logo{width:26px;height:26px;border-radius:7px;background:var(--orange);display:grid;place-items:center;
+  font-weight:800;font-size:13px;flex:none;}
+.brand h1{font-size:16px;font-weight:700;margin:0;letter-spacing:-.01em;white-space:nowrap;}
+.brand .site{font-size:11px;color:#9fb3cc;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hbtns{display:flex;gap:6px;flex:none;}
+.hbtn{background:rgba(255,255,255,.1);border:0;color:#fff;border-radius:9px;height:34px;min-width:34px;padding:0 10px;
+  font-size:13px;font-family:inherit;cursor:pointer;}
+.hbtn:active{background:rgba(255,255,255,.22);}
+.hbtn.sync[data-dirty="1"]::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--orange);margin-left:5px;vertical-align:middle;}
+
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:14px;}
+.tab{background:var(--card);border:1px solid var(--line);border-radius:11px;height:44px;font-family:inherit;
+  font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
+.tab.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.panel{display:none;}
+.panel.active{display:block;animation:fade .25s ease;}
+@keyframes fade{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:none;}}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;
+  box-shadow:var(--shadow);margin-bottom:12px;}
+.card h2{font-size:13px;font-weight:700;margin:0 0 12px;letter-spacing:.02em;color:var(--ink-soft);
+  text-transform:uppercase;}
+.fld{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin:0 0 6px;}
+.fld .req{color:var(--orange);}
+.row{display:grid;gap:10px;margin-bottom:12px;}
+.row.c2{grid-template-columns:1fr 1fr;}
+.row.c3{grid-template-columns:1fr 1fr 1fr;}
+input[type=text],input[type=date],input[type=url],select,textarea{
+  width:100%;min-height:var(--tap);padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+  font-family:inherit;font-size:16px;background:#fff;color:var(--ink);}
+textarea{min-height:96px;resize:vertical;line-height:1.6;}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--orange);outline-offset:-1px;border-color:var(--orange);}
+select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' fill='none' stroke='%235b6b80' stroke-width='2'/></svg>");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:34px;}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 13px;font-size:13px;
+  font-family:inherit;color:var(--ink-soft);cursor:pointer;min-height:38px;}
+.chip.on{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:600;}
+.chip.sev-긴급.on{background:var(--red);border-color:var(--red);}
+.chip.sev-중요.on{background:var(--amber);border-color:var(--amber);color:#3a2a00;}
+
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;}
+.shot{position:relative;aspect-ratio:1;border-radius:11px;overflow:hidden;border:1px solid var(--line);background:#e6ebf1;}
+.shot img{width:100%;height:100%;object-fit:cover;display:block;}
+.shot .del{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;
+  background:rgba(0,0,0,.62);color:#fff;font-size:14px;line-height:1;cursor:pointer;}
+.shot .flag{position:absolute;left:4px;bottom:4px;background:rgba(0,0,0,.62);color:#fff;font-size:10px;
+  padding:2px 6px;border-radius:5px;}
+.addshot{aspect-ratio:1;border:2px dashed var(--line);border-radius:11px;background:var(--orange-soft);
+  display:grid;place-items:center;gap:2px;cursor:pointer;font-family:inherit;color:var(--orange);
+  font-size:12px;font-weight:600;}
+.addshot span{font-size:22px;line-height:1;}
+
+.btn{width:100%;min-height:52px;border:0;border-radius:12px;background:var(--orange);color:#fff;
+  font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;}
+.btn:active{filter:brightness(.93);}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);}
+.btn.dark{background:var(--navy);}
+.btn.sm{min-height:40px;font-size:14px;}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+
+.filters{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px;-webkit-overflow-scrolling:touch;}
+.filters::-webkit-scrollbar{display:none;}
+.filters .chip{white-space:nowrap;flex:none;}
+.search{margin-bottom:10px;}
+
+.item{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:12px;margin-bottom:10px;
+  box-shadow:var(--shadow);display:flex;gap:11px;cursor:pointer;}
+.item .thumb{width:74px;height:74px;border-radius:10px;background:#e6ebf1;flex:none;overflow:hidden;
+  display:grid;place-items:center;font-size:11px;color:var(--ink-soft);}
+.item .thumb img{width:100%;height:100%;object-fit:cover;}
+.item .body{min-width:0;flex:1;}
+.item .loc{font-size:13px;font-weight:700;letter-spacing:-.01em;}
+.item .ttl{font-size:14px;margin:2px 0 5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.item .meta{font-size:11px;color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid transparent;}
+.b-접수{background:#eceff1;color:#455a64;}
+.b-조치중{background:#e3f2fd;color:var(--blue);}
+.b-조치완료{background:#fff8e1;color:#8d6e00;}
+.b-확인완료{background:#e8f5e9;color:var(--green);}
+.b-보류{background:#f3e5f5;color:#6a1b9a;}
+.sev{font-size:11px;font-weight:700;}
+.sev.긴급{color:var(--red);} .sev.중요{color:#b26a00;} .sev.보통{color:var(--gray);}
+.pend{font-size:10px;color:var(--orange);font-weight:700;}
+.empty{text-align:center;color:var(--ink-soft);font-size:13px;padding:40px 10px;}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-bottom:12px;}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;}
+.stat .n{font-size:24px;font-weight:800;letter-spacing:-.02em;}
+.stat .l{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+.bars{display:grid;gap:8px;}
+.bar{display:grid;grid-template-columns:78px 1fr 34px;gap:8px;align-items:center;font-size:12px;}
+.bar .track{height:9px;border-radius:5px;background:#e2e8f0;overflow:hidden;}
+.bar .fill{height:100%;background:var(--navy);border-radius:5px;}
+.bar .v{text-align:right;color:var(--ink-soft);font-variant-numeric:tabular-nums;}
+
+.sheet{position:fixed;inset:0;z-index:60;display:none;}
+.sheet.open{display:block;}
+.sheet .dim{position:absolute;inset:0;background:rgba(10,20,35,.5);}
+.sheet .body{position:absolute;left:0;right:0;bottom:0;max-height:92vh;overflow-y:auto;background:var(--bg);
+  border-radius:18px 18px 0 0;padding:16px 14px calc(env(safe-area-inset-bottom) + 22px);
+  animation:up .25s cubic-bezier(.2,.8,.3,1);}
+@keyframes up{from{transform:translateY(24px);opacity:.4;}to{transform:none;opacity:1;}}
+.sheet .grab{width:40px;height:4px;border-radius:3px;background:var(--line);margin:0 auto 14px;}
+.dt{display:grid;grid-template-columns:76px 1fr;gap:6px 10px;font-size:14px;margin-bottom:12px;}
+.dt dt{color:var(--ink-soft);font-size:12px;padding-top:2px;}
+.dt dd{margin:0;word-break:break-word;}
+
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(60px);z-index:90;
+  background:var(--navy);color:#fff;padding:11px 18px;border-radius:11px;font-size:13px;opacity:0;
+  transition:.25s;box-shadow:var(--shadow);pointer-events:none;max-width:88vw;text-align:center;}
+.toast.on{opacity:1;transform:translateX(-50%);}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid rgba(255,255,255,.35);
+  border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;margin-right:6px;vertical-align:-1px;}
+@keyframes sp{to{transform:rotate(360deg);}}
+.hint{font-size:11.5px;color:var(--ink-soft);margin:6px 0 0;line-height:1.5;}
+.hint code{background:#e6ebf1;padding:1px 5px;border-radius:4px;font-size:11px;}
+.divider{height:1px;background:var(--line);margin:14px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">
+    <div class="logo">P</div>
+    <div style="min-width:0">
+      <h1>펀치리스트</h1>
+      <span class="site" id="siteTag">현장 미설정</span>
+    </div>
+  </div>
+  <div class="hbtns">
+    <button class="hbtn sync" id="syncBtn" onclick="syncAll()">⟳ 동기화</button>
+    <button class="hbtn" onclick="show('set')">⚙</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-t="new"  onclick="show('new')">＋ 등록</button>
+  <button class="tab" data-t="list" onclick="show('list')">목록</button>
+  <button class="tab" data-t="dash" onclick="show('dash')">현황</button>
+  <button class="tab" data-t="set"  onclick="show('set')">설정</button>
+</div>
+
+<!-- ============ 등록 ============ -->
+<section class="panel active" id="p-new">
+  <div class="card">
+    <h2>📷 사진</h2>
+    <div class="shots" id="newShots">
+      <button class="addshot" onclick="pickPhoto('before')"><span>＋</span>촬영/선택</button>
+    </div>
+    <p class="hint">촬영 즉시 기기 안에 저장되고, 동기화할 때 구글 드라이브로 올라갑니다. 업로드 전에는 1600px·JPEG로 자동 축소됩니다.</p>
+  </div>
+
+  <div class="card">
+    <h2>📍 위치</h2>
+    <div class="row c2">
+      <div><label class="fld" for="f-building">동 <span class="req">*</span></label>
+        <input type="text" id="f-building" list="dl-building" inputmode="text" placeholder="101동"></div>
+      <div><label class="fld" for="f-unit">호수 <span class="req">*</span></label>
+        <input type="text" id="f-unit" inputmode="numeric" placeholder="1502"></div>
+    </div>
+    <label class="fld">실</label>
+    <div class="chips" id="c-room" style="margin-bottom:12px"></div>
+    <label class="fld">부위</label>
+    <div class="chips" id="c-part"></div>
+  </div>
+
+  <div class="card">
+    <h2>🔧 내용</h2>
+    <label class="fld">공종</label>
+    <div class="chips" id="c-trade" style="margin-bottom:12px"></div>
+    <label class="fld">하자유형</label>
+    <div class="chips" id="c-defect" style="margin-bottom:12px"></div>
+    <label class="fld">중요도</label>
+    <div class="chips" id="c-severity" style="margin-bottom:12px"></div>
+    <label class="fld" for="f-note">특기사항</label>
+    <textarea id="f-note" placeholder="예) 거실 우측 벽면 도배 들뜸 약 30cm. 재시공 필요."></textarea>
+    <div class="row c2" style="margin-top:12px;margin-bottom:0">
+      <div><label class="fld" for="f-vendor">담당업체</label>
+        <input type="text" id="f-vendor" list="dl-vendor" placeholder="미지정"></div>
+      <div><label class="fld" for="f-due">조치기한</label>
+        <input type="date" id="f-due"></div>
+    </div>
+  </div>
+
+  <button class="btn" onclick="saveNew()">펀치 등록</button>
+  <div class="btnrow" style="margin-top:8px">
+    <button class="btn ghost sm" onclick="resetForm(true)">초기화</button>
+    <button class="btn ghost sm" onclick="resetForm(false)">위치 유지하고 비우기</button>
+  </div>
+  <p class="hint">‘위치 유지하고 비우기’는 같은 세대에서 여러 건을 연속 등록할 때 편합니다.</p>
+</section>
+
+<!-- ============ 목록 ============ -->
+<section class="panel" id="p-list">
+  <input type="text" class="search" id="q" placeholder="🔍 동·호수·내용·업체 검색" oninput="renderList()">
+  <div class="filters" id="f-status"></div>
+  <div class="filters" id="f-trade2"></div>
+  <div id="listBox"></div>
+</section>
+
+<!-- ============ 현황 ============ -->
+<section class="panel" id="p-dash">
+  <div class="stats" id="statBox"></div>
+  <div class="card"><h2>상태별</h2><div class="bars" id="barStatus"></div></div>
+  <div class="card"><h2>동별</h2><div class="bars" id="barBuilding"></div></div>
+  <div class="card"><h2>공종별</h2><div class="bars" id="barTrade"></div></div>
+  <button class="btn ghost" onclick="exportCsv()">CSV 내보내기</button>
+</section>
+
+<!-- ============ 설정 ============ -->
+<section class="panel" id="p-set">
+  <div class="card">
+    <h2>구글 연동</h2>
+    <label class="fld" for="s-gas">Apps Script 웹 앱 URL</label>
+    <input type="url" id="s-gas" placeholder="https://script.google.com/macros/s/…/exec">
+    <p class="hint">스프레드시트 → 확장 프로그램 → Apps Script 에 <code>Code.gs</code>를 붙여넣고 웹 앱으로 배포한 뒤 <code>/exec</code> URL을 넣으세요.</p>
+    <div class="divider"></div>
+    <div class="row c2" style="margin-bottom:0">
+      <div><label class="fld" for="s-site">현장명</label><input type="text" id="s-site" placeholder="○○아파트 1단지"></div>
+      <div><label class="fld" for="s-user">등록자</label><input type="text" id="s-user" placeholder="홍길동"></div>
+    </div>
+  </div>
+  <button class="btn dark" onclick="saveSettings()">설정 저장</button>
+  <div class="btnrow" style="margin-top:8px">
+    <button class="btn ghost sm" onclick="testConn()">연결 테스트</button>
+    <button class="btn ghost sm" onclick="pullMasters()">마스터 새로고침</button>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h2>데이터</h2>
+    <div class="btnrow">
+      <button class="btn ghost sm" onclick="exportCsv()">CSV 내보내기</button>
+      <button class="btn ghost sm" onclick="wipeLocal()">로컬 데이터 삭제</button>
+    </div>
+    <p class="hint" id="storeInfo"></p>
+  </div>
+</section>
+
+<datalist id="dl-building"></datalist>
+<datalist id="dl-vendor"></datalist>
+<input type="file" id="filePick" accept="image/*" capture="environment" multiple hidden>
+</div>
+
+<div class="sheet" id="sheet"><div class="dim" onclick="closeSheet()"></div><div class="body" id="sheetBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const APP_VERSION = 'punch-1.0.0';
+
+/* ==================== 저장소 ==================== */
+const KEYS = { gas:'punch_gas', site:'punch_site', user:'punch_user',
+               list:'punch_list', masters:'punch_masters' };
+const mem = {};
+const store = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return mem[k] ?? null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){ mem[k]=v; } },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){ delete mem[k]; } }
+};
+const getList = () => { try{ return JSON.parse(store.get(KEYS.list) || '[]'); }catch(e){ return []; } };
+const setList = a => store.set(KEYS.list, JSON.stringify(a));
+
+/* ---- 사진 원본(Blob)은 IndexedDB에 보관: localStorage 용량 한계 회피 ---- */
+const IDB = (() => {
+  let dbp = null;
+  function open(){
+    if (dbp) return dbp;
+    dbp = new Promise((res, rej) => {
+      const rq = indexedDB.open('punchdb', 1);
+      rq.onupgradeneeded = () => rq.result.createObjectStore('photos');
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = () => rej(rq.error);
+    });
+    return dbp;
+  }
+  function tx(mode, fn){
+    return open().then(db => new Promise((res, rej) => {
+      const t = db.transaction('photos', mode);
+      const rq = fn(t.objectStore('photos'));
+      rq.onsuccess = () => res(rq.result);
+      rq.onerror = () => rej(rq.error);
+    }));
+  }
+  return {
+    put:(k,v) => tx('readwrite', s => s.put(v,k)),
+    get:k     => tx('readonly',  s => s.get(k)),
+    del:k     => tx('readwrite', s => s.delete(k)),
+    keys:()   => tx('readonly',  s => s.getAllKeys())
+  };
+})();
+
+/* ==================== 마스터 데이터 ==================== */
+const MASTER_DEFAULT = {
+  '동':['101동','102동','103동'],
+  '실':['거실','주방','현관','안방','침실1','침실2','드레스룸','욕실1','욕실2','발코니','다용도실','복도','계단실','공용부'],
+  '부위':['벽','천장','바닥','창호','문','걸레받이','몰딩','타일','위생기구','가구','조명','기타'],
+  '공종':['골조','조적','미장','방수','타일','도장','도배','바닥재','창호','유리','목공','가구','위생기구','기계설비','전기','소방','조경','청소','기타'],
+  '하자유형':['균열','누수','결로','오염','파손','스크래치','미시공','시공불량','마감불량','수직수평불량','작동불량','치수오차','이색','누락','기타'],
+  '중요도':['긴급','중요','보통'],
+  '상태':['접수','조치중','조치완료','확인완료','보류'],
+  '담당업체':['미지정']
+};
+let MASTERS = (() => {
+  try{
+    const saved = JSON.parse(store.get(KEYS.masters) || '{}');
+    return Object.assign({}, MASTER_DEFAULT, saved);
+  }catch(e){ return Object.assign({}, MASTER_DEFAULT); }
+})();
+const STATUSES = () => MASTERS['상태'] || MASTER_DEFAULT['상태'];
+
+/* ==================== 공통 유틸 ==================== */
+const $  = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => 'P' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const pad = n => String(n).padStart(2,'0');
+function nowIso(d){ d = d || new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; }
+const dayOf = s => String(s || '').slice(0,10);
+let toastTimer = null;
+function toast(msg, ms){
+  const t = $('toast'); t.innerHTML = msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), ms || 2200);
+}
+
+function show(name){
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.t === name));
+  $('p-' + name).classList.add('active');
+  window.scrollTo({ top:0, behavior:'smooth' });
+  if (name === 'list') renderList();
+  if (name === 'dash') renderDash();
+}
+
+/* ==================== 칩 선택 ==================== */
+const sel = { room:'', part:'', trade:'', defect:'', severity:'보통' };
+function buildChips(boxId, key, items, allowEmpty){
+  const box = $(boxId);
+  box.innerHTML = items.map(v =>
+    `<button type="button" class="chip ${key==='severity' ? 'sev-'+esc(v) : ''} ${sel[key]===v?'on':''}"
+      data-k="${esc(key)}" data-v="${esc(v)}">${esc(v)}</button>`).join('');
+  box.onclick = ev => {
+    const b = ev.target.closest('.chip'); if (!b) return;
+    const v = b.dataset.v;
+    sel[key] = (sel[key] === v && allowEmpty !== false) ? '' : v;
+    box.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.v === sel[key]));
+  };
+}
+function buildAllChips(){
+  buildChips('c-room','room', MASTERS['실']);
+  buildChips('c-part','part', MASTERS['부위']);
+  buildChips('c-trade','trade', MASTERS['공종']);
+  buildChips('c-defect','defect', MASTERS['하자유형']);
+  buildChips('c-severity','severity', MASTERS['중요도'], false);
+  $('dl-building').innerHTML = (MASTERS['동']||[]).map(v => `<option value="${esc(v)}">`).join('');
+  $('dl-vendor').innerHTML   = (MASTERS['담당업체']||[]).map(v => `<option value="${esc(v)}">`).join('');
+}
+
+/* ==================== 사진 ==================== */
+let pendingShots = [];   // 등록 폼에 올려둔 사진 {pid,kind}
+let pickTarget = null;   // {kind, recId|null}
+
+function pickPhoto(kind, recId){
+  pickTarget = { kind, recId: recId || null };
+  const f = $('filePick'); f.value = ''; f.click();
+}
+$('filePick').addEventListener('change', async ev => {
+  const files = Array.from(ev.target.files || []);
+  if (!files.length) return;
+  toast('<span class="spin"></span>사진 처리 중…', 4000);
+  for (const f of files){
+    try{
+      const blob = await shrink(f);
+      const pid = 'IMG' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+      await IDB.put(pid, blob);
+      if (pickTarget.recId) await addPhotoToRecord(pickTarget.recId, pid, pickTarget.kind);
+      else { pendingShots.push({ pid, kind: pickTarget.kind }); renderNewShots(); }
+    }catch(e){ toast('사진 처리 실패: ' + esc(e.message)); }
+  }
+  toast(`사진 ${files.length}장 추가`);
+  ev.target.value = '';
+});
+
+/** 긴 변 1600px, JPEG 품질 0.72로 축소 — 업로드 용량과 시트 응답속도 확보 */
+function shrink(file, maxSide, quality){
+  maxSide = maxSide || 1600; quality = quality || 0.72;
+  return new Promise((res, rej) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width:w, height:h } = img;
+      const r = Math.min(1, maxSide / Math.max(w,h));
+      w = Math.round(w*r); h = Math.round(h*r);
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      cv.toBlob(b => b ? res(b) : rej(new Error('이미지 변환 실패')), 'image/jpeg', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('이미지를 읽을 수 없습니다')); };
+    img.src = url;
+  });
+}
+
+/** 로컬 blob 또는 드라이브 썸네일을 <img>에 연결 */
+async function paintThumb(img, photo){
+  if (photo.thumb){ img.src = photo.thumb; return; }
+  try{
+    const blob = await IDB.get(photo.pid);
+    if (blob) img.src = URL.createObjectURL(blob);
+  }catch(e){}
+}
+function shotHtml(p, i, onDel){
+  return `<div class="shot"><img alt="사진" data-pid="${esc(p.pid)}">
+    <span class="flag">${p.kind === 'after' ? '조치후' : '조치전'}${p.thumb ? '' : ' · 대기'}</span>
+    ${onDel ? `<button class="del" onclick="${onDel}(${i})">✕</button>` : ''}</div>`;
+}
+function hydrateShots(container, photos){
+  container.querySelectorAll('img[data-pid]').forEach(img => {
+    const p = photos.find(x => x.pid === img.dataset.pid);
+    if (p) paintThumb(img, p);
+  });
+}
+function renderNewShots(){
+  const box = $('newShots');
+  box.innerHTML = pendingShots.map((p,i) => shotHtml(p,i,'delNewShot')).join('')
+    + `<button class="addshot" onclick="pickPhoto('before')"><span>＋</span>촬영/선택</button>`;
+  hydrateShots(box, pendingShots);
+}
+async function delNewShot(i){
+  const p = pendingShots.splice(i,1)[0];
+  if (p) { try{ await IDB.del(p.pid); }catch(e){} }
+  renderNewShots();
+}
+
+/* ==================== 등록 ==================== */
+function saveNew(){
+  const building = $('f-building').value.trim();
+  const unit     = $('f-unit').value.trim();
+  if (!building || !unit){ toast('동·호수는 필수입니다'); $('f-building').focus(); return; }
+  const now = nowIso();
+  const rec = {
+    id: uid(), created_at: now, updated_at: now,
+    site: store.get(KEYS.site) || '', building, unit,
+    room: sel.room, part: sel.part, trade: sel.trade, defect: sel.defect,
+    severity: sel.severity || '보통',
+    title: [sel.room, sel.part, sel.defect].filter(Boolean).join(' ') || '펀치',
+    note: $('f-note').value.trim(),
+    status: '접수',
+    vendor: $('f-vendor').value.trim() || '미지정',
+    due: $('f-due').value || '', done_at: '',
+    reporter: store.get(KEYS.user) || '',
+    photos: pendingShots.map(p => ({ pid:p.pid, kind:p.kind, thumb:'', url:'', fileId:'' })),
+    deleted: false, dirty: true
+  };
+  const a = getList(); a.unshift(rec); setList(a);
+  pendingShots = [];
+  resetForm(false);
+  markDirty();
+  toast('등록 완료 · 동기화하면 시트에 반영됩니다');
+  if (store.get(KEYS.gas)) syncAll(true);
+}
+function resetForm(full){
+  $('f-note').value = ''; $('f-due').value = '';
+  sel.room = sel.part = sel.trade = sel.defect = ''; sel.severity = '보통';
+  if (full){ $('f-building').value = ''; $('f-unit').value = ''; $('f-vendor').value = '';
+             pendingShots = []; }
+  buildAllChips(); renderNewShots();
+}
+
+/* ==================== 목록 ==================== */
+const filter = { status:'전체', trade:'전체' };
+function buildFilters(){
+  const mk = (box, key, items) => {
+    $(box).innerHTML = ['전체'].concat(items).map(v =>
+      `<button type="button" class="chip ${filter[key]===v?'on':''}" data-v="${esc(v)}">${esc(v)}</button>`).join('');
+    $(box).onclick = ev => {
+      const b = ev.target.closest('.chip'); if (!b) return;
+      filter[key] = b.dataset.v; buildFilters(); renderList();
+    };
+  };
+  mk('f-status','status', STATUSES());
+  mk('f-trade2','trade', MASTERS['공종']);
+}
+function visibleRecords(){
+  const q = ($('q').value || '').trim().toLowerCase();
+  return getList().filter(r => {
+    if (r.deleted) return false;
+    if (filter.status !== '전체' && r.status !== filter.status) return false;
+    if (filter.trade  !== '전체' && r.trade  !== filter.trade)  return false;
+    if (!q) return true;
+    return [r.building,r.unit,r.room,r.part,r.trade,r.defect,r.note,r.vendor,r.title]
+      .join(' ').toLowerCase().includes(q);
+  });
+}
+function renderList(){
+  const rows = visibleRecords();
+  const box = $('listBox');
+  if (!rows.length){ box.innerHTML = `<div class="empty">해당하는 펀치가 없습니다.</div>`; return; }
+  box.innerHTML = rows.map(r => {
+    const p = (r.photos || [])[0];
+    const overdue = r.due && !['조치완료','확인완료'].includes(r.status) && dayOf(nowIso()) > r.due;
+    return `<div class="item" onclick="openDetail('${esc(r.id)}')">
+      <div class="thumb">${p ? `<img alt="" data-pid="${esc(p.pid)}" data-rec="${esc(r.id)}">` : '사진없음'}</div>
+      <div class="body">
+        <div class="loc">${esc(r.building)} ${esc(r.unit)}${r.room ? ' · ' + esc(r.room) : ''}${r.part ? ' ' + esc(r.part) : ''}</div>
+        <div class="ttl">${esc(r.note || r.title)}</div>
+        <div class="meta">
+          <span class="badge b-${esc(r.status)}">${esc(r.status)}</span>
+          <span class="sev ${esc(r.severity)}">${esc(r.severity)}</span>
+          ${r.trade ? '<span>'+esc(r.trade)+'</span>' : ''}
+          <span>${esc(dayOf(r.created_at))}</span>
+          ${overdue ? '<span style="color:var(--red);font-weight:700">기한초과</span>' : ''}
+          ${r.dirty ? '<span class="pend">● 미동기화</span>' : ''}
+        </div>
+      </div></div>`;
+  }).join('');
+  box.querySelectorAll('img[data-pid]').forEach(img => {
+    const r = getList().find(x => x.id === img.dataset.rec);
+    const p = r && (r.photos || []).find(x => x.pid === img.dataset.pid);
+    if (p) paintThumb(img, p);
+  });
+}
+
+/* ==================== 상세 ==================== */
+let openId = null;
+function findRec(id){ return getList().find(r => r.id === id); }
+function updateRec(id, patch){
+  const a = getList(); const i = a.findIndex(r => r.id === id);
+  if (i < 0) return null;
+  a[i] = Object.assign({}, a[i], patch, { updated_at: nowIso(), dirty: true });
+  setList(a); markDirty();
+  return a[i];
+}
+function openDetail(id){
+  const r = findRec(id); if (!r) return;
+  openId = id;
+  const photos = r.photos || [];
+  $('sheetBody').innerHTML = `
+    <div class="grab"></div>
+    <div class="card">
+      <h2>${esc(r.building)} ${esc(r.unit)} · ${esc(r.status)}</h2>
+      <dl class="dt">
+        <dt>위치</dt><dd>${esc([r.room,r.part].filter(Boolean).join(' / ') || '-')}</dd>
+        <dt>공종</dt><dd>${esc(r.trade || '-')} / ${esc(r.defect || '-')}</dd>
+        <dt>중요도</dt><dd class="sev ${esc(r.severity)}">${esc(r.severity)}</dd>
+        <dt>특기사항</dt><dd>${esc(r.note || '-')}</dd>
+        <dt>담당업체</dt><dd>${esc(r.vendor || '-')}</dd>
+        <dt>조치기한</dt><dd>${esc(r.due || '-')}</dd>
+        <dt>등록</dt><dd>${esc(r.created_at.replace('T',' '))} · ${esc(r.reporter || '-')}</dd>
+        ${r.done_at ? `<dt>완료</dt><dd>${esc(r.done_at.replace('T',' '))}</dd>` : ''}
+      </dl>
+      <label class="fld">사진</label>
+      <div class="shots" id="dShots">
+        ${photos.map((p,i) => shotHtml(p,i,'delRecShot')).join('')}
+        <button class="addshot" onclick="pickPhoto('after','${esc(r.id)}')"><span>＋</span>조치후 사진</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>상태 변경</h2>
+      <div class="chips" id="dStatus">
+        ${STATUSES().map(s => `<button type="button" class="chip ${r.status===s?'on':''}" data-v="${esc(s)}">${esc(s)}</button>`).join('')}
+      </div>
+      <div class="divider"></div>
+      <div class="row c2" style="margin-bottom:0">
+        <div><label class="fld">담당업체</label><input type="text" id="d-vendor" value="${esc(r.vendor||'')}" list="dl-vendor"></div>
+        <div><label class="fld">조치기한</label><input type="date" id="d-due" value="${esc(r.due||'')}"></div>
+      </div>
+      <label class="fld" style="margin-top:12px">특기사항</label>
+      <textarea id="d-note">${esc(r.note||'')}</textarea>
+    </div>
+    <div class="btnrow">
+      <button class="btn dark" onclick="saveDetail()">저장</button>
+      <button class="btn ghost" onclick="closeSheet()">닫기</button>
+    </div>
+    <button class="btn ghost sm" style="margin-top:8px;color:var(--red)" onclick="removeRec()">이 펀치 삭제</button>`;
+  hydrateShots($('dShots'), photos);
+  $('dStatus').onclick = ev => {
+    const b = ev.target.closest('.chip'); if (!b) return;
+    $('dStatus').querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+    b.classList.add('on');
+  };
+  $('sheet').classList.add('open');
+}
+function closeSheet(){ $('sheet').classList.remove('open'); openId = null; renderList(); }
+function saveDetail(){
+  const status = ($('dStatus').querySelector('.chip.on') || {}).dataset?.v || findRec(openId).status;
+  const patch = {
+    status,
+    vendor: $('d-vendor').value.trim(),
+    due: $('d-due').value,
+    note: $('d-note').value.trim()
+  };
+  if (['조치완료','확인완료'].includes(status) && !findRec(openId).done_at) patch.done_at = nowIso();
+  if (!['조치완료','확인완료'].includes(status)) patch.done_at = '';
+  updateRec(openId, patch);
+  closeSheet();
+  toast('저장했습니다');
+  if (store.get(KEYS.gas)) syncAll(true);
+}
+async function addPhotoToRecord(id, pid, kind){
+  const r = findRec(id); if (!r) return;
+  const photos = (r.photos || []).concat([{ pid, kind, thumb:'', url:'', fileId:'' }]);
+  updateRec(id, { photos });
+  if (openId === id) openDetail(id);
+}
+async function delRecShot(i){
+  const r = findRec(openId); if (!r) return;
+  const photos = (r.photos || []).slice();
+  const p = photos.splice(i,1)[0];
+  if (p && !p.fileId) { try{ await IDB.del(p.pid); }catch(e){} }  // 드라이브 원본은 보존
+  updateRec(openId, { photos });
+  openDetail(openId);
+}
+function removeRec(){
+  if (!confirm('이 펀치를 삭제할까요? 시트에서는 삭제 표시(Y)로 남습니다.')) return;
+  updateRec(openId, { deleted:true });
+  closeSheet(); toast('삭제했습니다');
+  if (store.get(KEYS.gas)) syncAll(true);
+}
+
+/* ==================== 현황 ==================== */
+function countBy(rows, key){
+  const m = {};
+  rows.forEach(r => { const k = r[key] || '미지정'; m[k] = (m[k]||0) + 1; });
+  return Object.entries(m).sort((a,b) => b[1]-a[1]);
+}
+function bars(el, pairs){
+  const max = Math.max(1, ...pairs.map(p => p[1]));
+  $(el).innerHTML = pairs.length ? pairs.map(([k,v]) =>
+    `<div class="bar"><span>${esc(k)}</span><span class="track"><span class="fill" style="width:${Math.round(v/max*100)}%"></span></span><span class="v">${v}</span></div>`
+  ).join('') : '<div class="empty">데이터 없음</div>';
+}
+function renderDash(){
+  const rows = getList().filter(r => !r.deleted);
+  const today = dayOf(nowIso());
+  const done = rows.filter(r => ['조치완료','확인완료'].includes(r.status)).length;
+  const overdue = rows.filter(r => r.due && !['조치완료','확인완료'].includes(r.status) && today > r.due).length;
+  const urgent = rows.filter(r => r.severity === '긴급' && !['확인완료'].includes(r.status)).length;
+  const rate = rows.length ? Math.round(done / rows.length * 100) : 0;
+  $('statBox').innerHTML = `
+    <div class="stat"><div class="n">${rows.length}</div><div class="l">전체</div></div>
+    <div class="stat"><div class="n" style="color:var(--green)">${done}</div><div class="l">완료</div></div>
+    <div class="stat"><div class="n" style="color:var(--orange)">${rows.length-done}</div><div class="l">잔여</div></div>
+    <div class="stat"><div class="n" style="color:var(--red)">${overdue}</div><div class="l">기한초과</div></div>
+    <div class="stat"><div class="n" style="color:var(--red)">${urgent}</div><div class="l">긴급</div></div>
+    <div class="stat"><div class="n">${rate}%</div><div class="l">완료율</div></div>`;
+  bars('barStatus',  STATUSES().map(s => [s, rows.filter(r => r.status === s).length]));
+  bars('barBuilding', countBy(rows,'building'));
+  bars('barTrade',    countBy(rows,'trade'));
+}
+
+/* ==================== CSV ==================== */
+function exportCsv(){
+  const rows = getList().filter(r => !r.deleted);
+  if (!rows.length){ toast('내보낼 데이터가 없습니다'); return; }
+  const head = ['ID','등록일시','현장','동','호수','실','부위','공종','하자유형','중요도','특기사항','상태','담당업체','조치기한','완료일시','등록자','사진링크'];
+  const q = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
+  const body = rows.map(r => [r.id,r.created_at,r.site,r.building,r.unit,r.room,r.part,r.trade,r.defect,
+    r.severity,r.note,r.status,r.vendor,r.due,r.done_at,r.reporter,
+    (r.photos||[]).map(p => p.url).filter(Boolean).join(' ')].map(q).join(','));
+  const csv = '﻿' + [head.map(q).join(',')].concat(body).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = `펀치리스트_${dayOf(nowIso())}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ==================== 동기화 ==================== */
+function markDirty(){
+  const dirty = getList().some(r => r.dirty);
+  $('syncBtn').dataset.dirty = dirty ? '1' : '0';
+}
+const blobToB64 = blob => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(String(r.result).split(',')[1]);
+  r.onerror = () => rej(new Error('파일 읽기 실패'));
+  r.readAsDataURL(blob);
+});
+function post(url, body){
+  return fetch(url, { method:'POST', redirect:'follow',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },  // preflight 회피(GAS는 CORS 사전요청 미지원)
+    body: JSON.stringify(body) }).then(r => {
+      if (!r.ok) throw new Error('서버 응답 ' + r.status);
+      return r.json();
+    });
+}
+
+let syncing = false;
+async function syncAll(silent){
+  const url = store.get(KEYS.gas);
+  if (!url){ if (!silent){ toast('설정에서 Apps Script URL을 먼저 입력하세요'); show('set'); } return; }
+  if (syncing) return;
+  syncing = true;
+  const btn = $('syncBtn'); const label = btn.innerHTML;
+  btn.innerHTML = '<span class="spin"></span>동기화';
+  try{
+    // 1) 대기 중인 사진을 드라이브로 업로드
+    const list = getList();
+    let uploaded = 0;
+    for (const r of list){
+      for (const p of (r.photos || [])){
+        if (p.fileId) continue;
+        const blob = await IDB.get(p.pid).catch(() => null);
+        if (!blob) continue;
+        const data = await blobToB64(blob);
+        const res = await post(url, { action:'photo', data, mime:'image/jpeg',
+          name: `${r.building}_${r.unit}_${p.kind}_${p.pid}.jpg`,
+          site: r.site || store.get(KEYS.site) || '', building: r.building, kind: p.kind });
+        if (res && res.ok){
+          p.fileId = res.fileId; p.url = res.url; p.thumb = res.thumb;
+          uploaded++;
+          try{ await IDB.del(p.pid); }catch(e){}
+        }
+      }
+    }
+    setList(list);
+
+    // 2) 변경된 레코드 push
+    const dirty = list.filter(r => r.dirty).map(toWire);
+    if (dirty.length) {
+      const res = await post(url, { action:'upsert', records: dirty });
+      if (!res.ok) throw new Error(res.error || '저장 실패');
+    }
+
+    // 3) 서버 상태 pull + 병합(updated_at 최신 우선)
+    const remote = await fetch(url + '?action=list', { redirect:'follow' }).then(r => r.json());
+    if (remote && remote.ok){
+      if (remote.masters && Object.keys(remote.masters).length){
+        MASTERS = Object.assign({}, MASTER_DEFAULT, remote.masters);
+        store.set(KEYS.masters, JSON.stringify(remote.masters));
+        buildAllChips(); buildFilters();
+      }
+      const map = {};
+      getList().forEach(r => { map[r.id] = Object.assign({}, r, { dirty:false }); });
+      (remote.records || []).forEach(rr => {
+        const local = map[rr.id];
+        const merged = fromWire(rr, local);
+        if (!local || !local.updated_at || (rr.updated_at && rr.updated_at > local.updated_at)) map[rr.id] = merged;
+      });
+      const all = Object.values(map).sort((a,b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      setList(all);
+    }
+    markDirty(); renderList(); renderDash();
+    if (!silent) toast(`✓ 동기화 완료 · 사진 ${uploaded}장, 항목 ${dirty.length}건`);
+  }catch(err){
+    toast('동기화 실패: ' + esc(err.message), 3500);
+  }finally{
+    syncing = false; $('syncBtn').innerHTML = label; markDirty();
+  }
+}
+
+/** 시트 저장용 형태로 변환 */
+function toWire(r){
+  return {
+    id:r.id, created_at:r.created_at, updated_at:r.updated_at, site:r.site,
+    building:r.building, unit:r.unit, room:r.room, part:r.part,
+    trade:r.trade, defect:r.defect, severity:r.severity, title:r.title,
+    note:r.note, status:r.status, vendor:r.vendor, due:r.due, done_at:r.done_at,
+    reporter:r.reporter, deleted:!!r.deleted,
+    photo_before:(r.photos||[]).filter(p => p.kind !== 'after' && p.url).map(p => p.url),
+    photo_after: (r.photos||[]).filter(p => p.kind === 'after' && p.url).map(p => p.url),
+    photo_meta: JSON.stringify((r.photos||[]).filter(p => p.fileId)
+      .map(p => ({ pid:p.pid, kind:p.kind, fileId:p.fileId })))
+  };
+}
+/** 시트에서 읽은 형태를 앱 레코드로 복원 (업로드 대기 사진은 로컬 것을 유지) */
+function fromWire(rr, local){
+  let meta = [];
+  try{ meta = JSON.parse(rr.photo_meta || '[]'); }catch(e){}
+  const photos = meta.map(m => ({
+    pid:m.pid, kind:m.kind, fileId:m.fileId,
+    url:'https://drive.google.com/file/d/' + m.fileId + '/view',
+    thumb:'https://drive.google.com/thumbnail?id=' + m.fileId + '&sz=w1000'
+  }));
+  const pendingLocal = local ? (local.photos || []).filter(p => !p.fileId) : [];
+  return Object.assign({}, rr, {
+    deleted: rr.deleted === true || rr.deleted === 'Y',
+    photos: photos.concat(pendingLocal),
+    dirty: pendingLocal.length > 0
+  });
+}
+
+async function testConn(){
+  const url = $('s-gas').value.trim();
+  if (!url){ toast('URL을 입력하세요'); return; }
+  toast('<span class="spin"></span>연결 확인 중…', 5000);
+  try{
+    const r = await fetch(url + '?action=ping', { redirect:'follow' }).then(r => r.json());
+    toast(r.ok ? '✓ 연결 성공 (' + esc(r.version) + ')' : '응답 오류: ' + esc(r.error));
+  }catch(e){ toast('연결 실패: ' + esc(e.message), 3500); }
+}
+async function pullMasters(){
+  const url = store.get(KEYS.gas);
+  if (!url){ toast('URL을 먼저 저장하세요'); return; }
+  try{
+    const r = await fetch(url + '?action=masters', { redirect:'follow' }).then(r => r.json());
+    if (r.ok && r.masters){
+      MASTERS = Object.assign({}, MASTER_DEFAULT, r.masters);
+      store.set(KEYS.masters, JSON.stringify(r.masters));
+      buildAllChips(); buildFilters();
+      toast('마스터 데이터를 새로 받았습니다');
+    } else toast('마스터 조회 실패');
+  }catch(e){ toast('실패: ' + esc(e.message)); }
+}
+
+/* ==================== 설정 ==================== */
+function saveSettings(){
+  store.set(KEYS.gas,  $('s-gas').value.trim());
+  store.set(KEYS.site, $('s-site').value.trim());
+  store.set(KEYS.user, $('s-user').value.trim());
+  loadSettings();
+  toast('설정을 저장했습니다');
+}
+function loadSettings(){
+  $('s-gas').value  = store.get(KEYS.gas)  || '';
+  $('s-site').value = store.get(KEYS.site) || '';
+  $('s-user').value = store.get(KEYS.user) || '';
+  $('siteTag').textContent = (store.get(KEYS.site) || '현장 미설정')
+    + (store.get(KEYS.user) ? ' · ' + store.get(KEYS.user) : '');
+  const n = getList().filter(r => !r.deleted).length;
+  $('storeInfo').textContent = `로컬 보관 ${n}건 · 버전 ${APP_VERSION}`;
+}
+async function wipeLocal(){
+  if (!confirm('이 기기에 저장된 펀치와 대기 중 사진을 모두 지웁니다. 시트 데이터는 남습니다. 계속할까요?')) return;
+  store.del(KEYS.list);
+  try{ const ks = await IDB.keys(); for (const k of ks) await IDB.del(k); }catch(e){}
+  loadSettings(); renderList(); renderDash(); markDirty();
+  toast('로컬 데이터를 삭제했습니다');
+}
+
+/* ==================== 시작 ==================== */
+buildAllChips();
+buildFilters();
+renderNewShots();
+loadSettings();
+renderList();
+markDirty();
+window.addEventListener('online', () => { if (store.get(KEYS.gas)) syncAll(true); });
+console.log('펀치리스트 ' + APP_VERSION);
+</script>
+</body>
+</html>
