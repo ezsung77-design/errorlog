@@ -1,15 +1,18 @@
-# 아파트 현장 펀치/체크리스트 관리 시스템 (제안 + 구현)
+# PUNCHLOG · 아파트 현장 펀치/체크리스트 관리 시스템
+
+> 이 폴더(`PUNCHLOG/`)는 저장소 루트의 오답 로그 앱과 **완전히 독립적인 프로젝트**입니다.
+> 서로 코드를 공유하지 않으므로 따로 수정·배포해도 영향이 없습니다.
 
 현장에서 **폰으로 사진 찍고 → 위치·내용 입력 → 구글 스프레드시트에 자동 축적**되는
 단일 파일 웹앱과 Google Apps Script 백엔드입니다. 설치 없이 브라우저 주소만 공유하면 됩니다.
 
 ```
-[현장 담당자 폰]                    [구글 계정 내부]
- punch/index.html  ──POST(사진)──▶  Apps Script  ──▶ Google Drive (사진 원본)
- (오프라인 저장:                     웹 앱(/exec)  ──▶ Google Sheets
-  localStorage + IndexedDB)  ◀─GET(목록/마스터)─┘      ├ PUNCH  펀치 원장
-                                                       ├ MASTER 드롭다운 마스터
-                                                       └ LOG    변경 이력
+[현장 담당자 폰]                      [구글 계정 내부]
+ PUNCHLOG/index.html  ──사진 POST──▶  Apps Script  ──▶ Google Drive (사진 원본)
+ (오프라인 저장:                       웹 앱 /exec   ──▶ Google Sheets
+  localStorage + IndexedDB)           │                 ├ PUNCH  펀치 원장
+              ▲                       │                 ├ MASTER 드롭다운 마스터
+              └──── 목록·마스터 GET ───┘                 └ LOG    변경 이력
 ```
 
 ## 1. 왜 이 구조인가
@@ -77,7 +80,7 @@
    - 실행 계정: **나**
    - 액세스 권한: **링크가 있는 모든 사용자** (사내만 쓰면 `조직 내 사용자`)
    - 배포 후 `https://script.google.com/macros/s/…/exec` URL 복사
-5. 앱(`punch/index.html`)을 GitHub Pages 등으로 열고 **⚙ 설정**에 URL·현장명·등록자 입력 → 저장 → **연결 테스트**
+5. 앱(`PUNCHLOG/index.html`)을 GitHub Pages 등으로 열고 **⚙ 설정**에 URL·현장명·등록자 입력 → 저장 → **연결 테스트**
 6. 아이폰 Safari `공유 → 홈 화면에 추가` / 안드로이드 Chrome `홈 화면에 추가` → 앱처럼 사용
 
 > 배포한 URL을 그대로 팀원에게 전달하면 각자 폰에서 같은 시트로 기록이 모입니다.
@@ -106,11 +109,11 @@
 - 상태가 `조치완료`로 바뀌면 담당업체에 Gmail 자동 발송(Apps Script 트리거)
 - 시트에서 **세대별 펀치 리스트 PDF** 자동 생성(문서 병합) → 인수인계 서류로 사용
 - 도면 이미지 위에 핀 찍기(좌표 저장 컬럼 추가)
-- 사진 AI 자동 분류(하자유형 추천) — 저장소 루트의 오답 로그 앱과 동일한 Gemini 호출 방식 재사용 가능
+- 사진 AI 자동 분류(하자유형 추천) — 촬영 사진을 분석해 공종·하자유형을 자동 제안
 
 ## 파일
 
 | 경로 | 내용 |
 |---|---|
-| `punch/index.html` | 현장용 웹앱 (단일 파일, 의존성 없음) |
-| `punch/apps-script/Code.gs` | 스프레드시트 백엔드 (웹 앱으로 배포) |
+| `PUNCHLOG/index.html` | 현장용 웹앱 (단일 파일, 의존성 없음) |
+| `PUNCHLOG/apps-script/Code.gs` | 스프레드시트 백엔드 (웹 앱으로 배포) |
